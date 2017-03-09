@@ -181,6 +181,7 @@ sub zabbix_get_events
     #Possible values are: eventid, objectid and clock
     $data{'params'}{'sortfield'} = ['clock', 'eventid'];
 
+    #for debug
     $data{'params'}{'limit'} = 2;
 
     $data{'auth'} = $ZABBIX_AUTH_ID;
@@ -208,7 +209,7 @@ sub zabbix_get_events
 
 	zabbix_get_trigger($objectid);
 
-	print "==========================================================\n";
+	print "=" x 50 . "\n";
    }
 }
 
@@ -230,7 +231,7 @@ sub zabbix_get_trigger
 
     my $response = send_to_zabbix(\%data);
 
-    print Dumper $response;
+    #print Dumper $response;
 
     foreach my $trigger(@{$response->content->{'result'}})
     {
@@ -248,7 +249,14 @@ sub zabbix_get_trigger
 	#5 - disaster.
 	my $priority = $trigger_priority{$trigger->{'priority'}};
 
-        print "TriggerID => $triggerid\n";
+        my $host;
+        foreach my $hosts(@{$trigger->{'hosts'}})
+        {
+	    $host = $hosts->{'name'};
+        }
+
+	print "Host => $host\n";
+	print "TriggerID => $triggerid\n";
 	print "Description => $description\n";
 	print "Comments => $comments\n";
 	print "Priority => $priority\n";
