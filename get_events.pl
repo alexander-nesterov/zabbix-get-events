@@ -39,6 +39,8 @@ use constant SMTP_SERVER	=> '127.0.0.1';
 ##Global variables
 #================================================================
 my $ZABBIX_AUTH_ID;
+my $PATH_FOR_SAVING = '/home/sa/';
+
 
 my %event_value = (
 		    0 => 'OK',
@@ -78,6 +80,7 @@ sub main
     {
 	zabbix_get_events();
 	zabbix_logout();
+        save_to_excel('test');
     }
 }
 
@@ -277,5 +280,63 @@ sub unix_time_to_date
     return localtime($unix_time);
 }
 
+#================================================================
+sub save_to_excel
+{
+    my $file = shift;
 
+    my $workbook  = Excel::Writer::XLSX->new($PATH_FOR_SAVING . $file . '.xlsx');
+    my $worksheet = $workbook->add_worksheet('Report');
+
+    $workbook->set_properties(
+				title    => 'Report',
+				author   => 'Zabbix',
+				comments => 'Created by Perl and Excel::Writer::XLSX',
+    );
+
+    my $format_header = $workbook->add_format(border => 2);
+
+    #Font for header
+    $format_header->set_bold();
+    $format_header->set_color('red');
+    $format_header->set_size(16);
+    $format_header->set_font('Cambria');
+
+    $format_header->set_align('center');
+
+    $format_header->set_bg_color('#FFFFCC');
+
+    #Header
+    $worksheet->write("A1", 'Time', $format_header);
+    $worksheet->write("B1", 'Host', $format_header);
+    $worksheet->write("C1", 'Description', $format_header);
+    $worksheet->write("D1", 'Status', $format_header);
+    $worksheet->write("E1", 'Severity', $format_header);
+
+    $worksheet->freeze_panes(1, 0);
+
+    my $format = $workbook->add_format(border => 1);
+
+    #Font for data
+    $format->set_color('black');
+    $format->set_size(14);
+    $format->set_font('Cambria');
+    $format->set_text_wrap();
+
+    $format->set_align('left');
+    $format->set_align('vcenter');
+
+    $worksheet->set_column('A:A', 25);
+    $worksheet->set_column('B:B', 35);
+    $worksheet->set_column('C:C', 40);
+    $worksheet->set_column('D:D', 35);
+    $worksheet->set_column('E:E', 35);
+
+    #Enable auto-filter
+    $worksheet->autofilter('A1:E1');
+
+
+
+    $workbook->close;
+}
 
