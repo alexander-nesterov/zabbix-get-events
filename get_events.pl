@@ -42,8 +42,6 @@ use constant PATH_FOR_SAVING	=> '/home/sa/';
 ##Global variables
 #================================================================
 my $ZABBIX_AUTH_ID;
-#my $PATH_FOR_SAVING = '/home/sa/';
-
 
 my %event_value = (
 		    0 => 'OK',
@@ -197,10 +195,9 @@ sub zabbix_get_events
 
     my $response = send_to_zabbix(\%data);
 
-
    foreach my $event(@{$response->content->{'result'}}) 
    {
-	my $eventid = $event->{'eventid'};
+	#my $eventid = $event->{'eventid'};
 	my $objectid = $event->{'objectid'};
 	my $clock = $event->{'clock'}; #Time when the event was created
 	my $value =  $event_value{$event->{'value'}};
@@ -215,7 +212,7 @@ sub zabbix_get_events
 
 	zabbix_get_trigger($objectid);
 
-	print "=" x 50 . "\n";
+	print "=" x 80 . "\n";
    }
 }
 
@@ -302,7 +299,7 @@ sub save_to_excel
     #Font for header
     $format_header->set_bold();
     $format_header->set_color('red');
-    $format_header->set_size(16);
+    $format_header->set_size(14);
     $format_header->set_font('Cambria');
 
     $format_header->set_align('center');
@@ -315,6 +312,7 @@ sub save_to_excel
     $worksheet->write("C1", 'Description', $format_header);
     $worksheet->write("D1", 'Status', $format_header);
     $worksheet->write("E1", 'Severity', $format_header);
+    $worksheet->write("F1", 'Ask', $format_header);
 
     $worksheet->freeze_panes(1, 0);
 
@@ -334,12 +332,14 @@ sub save_to_excel
     $worksheet->set_column('C:C', 40);
     $worksheet->set_column('D:D', 35);
     $worksheet->set_column('E:E', 35);
+    $worksheet->set_column('F:F', 15);
 
     #Enable auto-filter
-    $worksheet->autofilter('A1:E1');
+    $worksheet->autofilter('A1:F1');
 
+    #Data
 
-
+    #Close
     $workbook->close;
 }
 
