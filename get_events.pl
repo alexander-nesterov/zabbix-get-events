@@ -35,11 +35,14 @@ use constant RECIPIENT		=> 'info\@your_domain';
 use constant SUBJECT		=> 'zabbix events';
 use constant SMTP_SERVER	=> '127.0.0.1';
 
+#EXCEL
+use constant PATH_FOR_SAVING	=> '/home/sa/';
+
 #================================================================
 ##Global variables
 #================================================================
 my $ZABBIX_AUTH_ID;
-my $PATH_FOR_SAVING = '/home/sa/';
+#my $PATH_FOR_SAVING = '/home/sa/';
 
 
 my %event_value = (
@@ -80,7 +83,7 @@ sub main
     {
 	zabbix_get_events();
 	zabbix_logout();
-        save_to_excel('test');
+        save_to_excel('zabbix_report_events');
     }
 }
 
@@ -285,7 +288,7 @@ sub save_to_excel
 {
     my $file = shift;
 
-    my $workbook  = Excel::Writer::XLSX->new($PATH_FOR_SAVING . $file . '.xlsx');
+    my $workbook  = Excel::Writer::XLSX->new(PATH_FOR_SAVING . $file . '.xlsx');
     my $worksheet = $workbook->add_worksheet('Report');
 
     $workbook->set_properties(
