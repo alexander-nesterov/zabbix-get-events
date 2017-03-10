@@ -82,7 +82,7 @@ sub main
     {
 	zabbix_get_events();
 	zabbix_logout();
-        save_to_excel('zabbix_report_events');
+	save_to_excel('zabbix_report_events');
     }
 }
 
@@ -129,8 +129,8 @@ sub zabbix_logout
 
     if (!defined($response))
     {
-        print "Logout failed, zabbix server: " . ZABBIX_SERVER . "\n";
-        return 0;
+	print "Logout failed, zabbix server: " . ZABBIX_SERVER . "\n";
+	return 0;
     }
 
     print "Logout successful. Auth ID: $ZABBIX_AUTH_ID\n";
@@ -206,18 +206,19 @@ sub zabbix_get_events
 	my $source = $event_source{$event->{'source'}};
 	my $acknowledged = $event_acknowledged{$event->{'acknowledged'}}; #If set to true return only acknowledged events
 
-	print "Clock => " . unix_time_to_date($clock) . "\n";
-	print "ObjectID => $objectid\n";
-	print "Status => $value\n";
-	print "Source => $source\n";
-	print "Acknowledged => $acknowledged\n";
+	#print "Clock => " . unix_time_to_date($clock) . "\n";
+	#print "ObjectID => $objectid\n";
+	#print "Status => $value\n";
+	#print "Source => $source\n";
+	#print "Acknowledged => $acknowledged\n";
 
-	zabbix_get_trigger($objectid);
+	fill_events($count, $eventid, $objectid, $clock, $value, $source, $acknowledged);
 
-        fill_events($count, $eventid, $objectid, $clock, $value, $source, $acknowledged);
-        $count++;
+	zabbix_get_trigger($count, $objectid, $eventid);
 
-	print "=" x 80 . "\n";
+	$count++;
+
+	#print "=" x 80 . "\n";
     }
 
     $EVENTS{'result'}{'total'} = $count;
@@ -226,7 +227,7 @@ sub zabbix_get_events
 #================================================================
 sub zabbix_get_trigger
 {
-    my $objectid = shift;
+    my ($count, $objectid, $eventid) = @_;
     my %data;
 
     $data{'jsonrpc'} = '2.0';
@@ -240,8 +241,6 @@ sub zabbix_get_trigger
     $data{'id'} = 1;
 
     my $response = send_to_zabbix(\%data);
-
-    #print Dumper $response;
 
     foreach my $trigger(@{$response->content->{'result'}})
     {
@@ -265,11 +264,13 @@ sub zabbix_get_trigger
 	    $host = $hosts->{'name'};
         }
 
-	print "Host => $host\n";
-	print "TriggerID => $triggerid\n";
-	print "Description => $description\n";
-	print "Comments => $comments\n";
-	print "Priority => $priority\n";
+	#print "Host => $host\n";
+	#print "TriggerID => $triggerid\n";
+	#print "Description => $description\n";
+	#print "Comments => $comments\n";
+	#print "Priority => $priority\n";
+
+	fill_triggers($count, $eventid, $host, $description, $priority);
    }
 }
 
@@ -287,21 +288,10 @@ sub unix_time_to_date
     return localtime($unix_time);
 }
 
+#================================================================
 sub fill_events
 {
     my ($count, $eventid, $objectid, $clock, $value, $source, $acknowledged) = @_;
-
-    #$EVENTS{'result'}{'event'}[$count]{'objectid'} = $objectid;
-    #$EVENTS{'result'}{'event'}[$count]{'clock'} = $clock;
-    #$EVENTS{'result'}{'event'}[$count]{'value'} = $value;
-    #$EVENTS{'result'}{'event'}[$count]{'source'} = $source;
-    #$EVENTS{'result'}{'event'}[$count]{'acknowledged'} = $acknowledged;
-
-
-    #$EVENTS{'result'}{'event'}[$objectid]{'clock'} = $clock;
-    #$EVENTS{'result'}{'event'}[$objectid]{'value'} = $value;
-    #$EVENTS{'result'}{'event'}[$objectid]{'source'} = $source;
-    #$EVENTS{'result'}{'event'}[$objectid]{'acknowledged'} = $acknowledged;
 
     $EVENTS{'result'}{'events'}[$count]{$eventid}{'objectid'} = $objectid;
     $EVENTS{'result'}{'events'}[$count]{$eventid}{'clock'} = $clock;
@@ -312,9 +302,13 @@ sub fill_events
     #print Dumper \%EVENTS;
 }
 
+#================================================================
 sub fill_triggers
 {
-    my ($eventid, $host, $description, $priority) = @_;
+    my ($count, $eventid, $host, $description, $priority) = @_;
+
+    $EVENTS{'result'}{'events'}[$count]{$eventid}{'host'} = $host;
+    $EVENTS{'result'}{'events'}[$count]{$eventid}{'description'} = $description;
 }
 
 #================================================================
@@ -376,16 +370,31 @@ sub save_to_excel
 
     #Data
     my $total = $EVENTS{'result'}{'total'};
-print "TOTAL: $total\n";
+
     #foreach my $row (0..$total)
     #{
-	#$worksheet->write($row+1, 0, $EVENTS{'result'}{'items'}[$row]{'name'}, $format);
+        #print $EVENTS{'result'}{'events'}[$row]{'clock'};
+	#$worksheet->write($row+1, 0, $EVENTS{'result'}{'events'}[$row]{'clock'}, $format);
 
 	#delete $EVENTS{'result'}{'items'}[$row];
     #}
 
+    foreach my $result($EVENTS{'result'})
+    {
+       foreach my $event(@{$result->{'events'}})
+        #foreach my $event($result->{'events'})        
+         {
+	    print Dumper $event;
+            #foreach my $ev(@{$event})
+            #{
+              #print $ev->{'clock'}
+              #print Dumper $ev;
+            #}
+        }
+    } 
+
     #Close
     $workbook->close;
 
-    print Dumper \%EVENTS;
+    #print Dumper \%EVENTS;
 }
