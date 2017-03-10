@@ -42,6 +42,7 @@ use constant PATH_FOR_SAVING	=> '/home/sa/';
 ##Global variables
 #================================================================
 my $ZABBIX_AUTH_ID;
+my %EVENTS;
 
 my %event_value = (
 		    0 => 'OK',
@@ -186,7 +187,7 @@ sub zabbix_get_events
     $data{'params'}{'sortfield'} = ['clock', 'eventid'];
 
     #for debug
-    $data{'params'}{'limit'} = 2;
+    $data{'params'}{'limit'} = 3;
 
     $data{'auth'} = $ZABBIX_AUTH_ID;
     $data{'id'} = 1;
@@ -195,9 +196,10 @@ sub zabbix_get_events
 
     my $response = send_to_zabbix(\%data);
 
-   foreach my $event(@{$response->content->{'result'}}) 
-   {
-	#my $eventid = $event->{'eventid'};
+    my $count = 0;
+    foreach my $event(@{$response->content->{'result'}}) 
+    {
+	my $eventid = $event->{'eventid'};
 	my $objectid = $event->{'objectid'};
 	my $clock = $event->{'clock'}; #Time when the event was created
 	my $value =  $event_value{$event->{'value'}};
@@ -212,21 +214,26 @@ sub zabbix_get_events
 
 	zabbix_get_trigger($objectid);
 
+        fill_events($count, $eventid, $objectid, $clock, $value, $source, $acknowledged);
+        $count++;
+
 	print "=" x 80 . "\n";
-   }
+    }
+
+    $EVENTS{'result'}{'total'} = $count;
 }
 
 #================================================================
 sub zabbix_get_trigger
 {
-    my $triggerid = shift;
+    my $objectid = shift;
     my %data;
 
     $data{'jsonrpc'} = '2.0';
     $data{'method'} = 'trigger.get';
 
     $data{'params'}{'output'} = 'extend';
-    $data{'params'}{'triggerids'} = $triggerid;
+    $data{'params'}{'triggerids'} = $objectid;
     $data{'params'}{'selectHosts'} = ['hostid', 'name', 'status'];
 
     $data{'auth'} = $ZABBIX_AUTH_ID;
@@ -249,7 +256,7 @@ sub zabbix_get_trigger
 	#2 - warning;
 	#3 - average;
 	#4 - high;
-	#5 - disaster.
+	#5 - disaster
 	my $priority = $trigger_priority{$trigger->{'priority'}};
 
         my $host;
@@ -278,6 +285,36 @@ sub unix_time_to_date
     my $unix_time = shift;
 
     return localtime($unix_time);
+}
+
+sub fill_events
+{
+    my ($count, $eventid, $objectid, $clock, $value, $source, $acknowledged) = @_;
+
+    #$EVENTS{'result'}{'event'}[$count]{'objectid'} = $objectid;
+    #$EVENTS{'result'}{'event'}[$count]{'clock'} = $clock;
+    #$EVENTS{'result'}{'event'}[$count]{'value'} = $value;
+    #$EVENTS{'result'}{'event'}[$count]{'source'} = $source;
+    #$EVENTS{'result'}{'event'}[$count]{'acknowledged'} = $acknowledged;
+
+
+    #$EVENTS{'result'}{'event'}[$objectid]{'clock'} = $clock;
+    #$EVENTS{'result'}{'event'}[$objectid]{'value'} = $value;
+    #$EVENTS{'result'}{'event'}[$objectid]{'source'} = $source;
+    #$EVENTS{'result'}{'event'}[$objectid]{'acknowledged'} = $acknowledged;
+
+    $EVENTS{'result'}{'events'}[$count]{$eventid}{'objectid'} = $objectid;
+    $EVENTS{'result'}{'events'}[$count]{$eventid}{'clock'} = $clock;
+    $EVENTS{'result'}{'events'}[$count]{$eventid}{'value'} = $value;
+    $EVENTS{'result'}{'events'}[$count]{$eventid}{'source'} = $source;
+    $EVENTS{'result'}{'events'}[$count]{$eventid}{'acknowledged'} = $acknowledged;
+
+    #print Dumper \%EVENTS;
+}
+
+sub fill_triggers
+{
+    my ($eventid, $host, $description, $priority) = @_;
 }
 
 #================================================================
@@ -338,8 +375,17 @@ sub save_to_excel
     $worksheet->autofilter('A1:F1');
 
     #Data
+    my $total = $EVENTS{'result'}{'total'};
+print "TOTAL: $total\n";
+    #foreach my $row (0..$total)
+    #{
+	#$worksheet->write($row+1, 0, $EVENTS{'result'}{'items'}[$row]{'name'}, $format);
+
+	#delete $EVENTS{'result'}{'items'}[$row];
+    #}
 
     #Close
     $workbook->close;
-}
 
+    print Dumper \%EVENTS;
+}
