@@ -49,6 +49,11 @@ my %EVENT_VALUE = (
 		    1 => 'PROBLEM'
 );
 
+my %COLOR_EVENT_VALUE = (
+		    OK => '#00AA00',
+		    PROBLEM => '#DC0000'
+);
+
 my %EVENT_SOURCE = (
 		    0 => 'Trigger',
 		    1 => 'Discovery rule',
@@ -71,12 +76,12 @@ my %TRIGGER_PRIORITY = (
 );
 
 my %COLOR_TRIGGER_PRIORITY = (
-			    0 => '97AAB3',	#Not classified
-			    1 => '7499FF',	#Information
-			    2 => 'FFC859',	#Warning
-			    3 => 'FFA059',	#Average
-			    4 => 'E97659',	#High
-			    5 => 'E45959'	#Disaster
+		    0 => '#97AAB3',	#Not classified
+		    1 => '#7499FF',	#Information
+		    2 => '#FFC859',	#Warning
+		    3 => '#FFA059',	#Average
+		    4 => '#E97659',	#High
+		    5 => '#E45959'	#Disaster
 );
 
 #================================================================
@@ -246,7 +251,7 @@ sub zabbix_get_trigger
 
     foreach my $trigger(@{$response->content->{'result'}})
     {
-	my $triggerid = $trigger->{'triggerid'};
+        my $triggerid = $trigger->{'triggerid'};
 	my $description = $trigger->{'description'};
 	my $comments = $trigger->{'comments'};
 
@@ -380,7 +385,7 @@ sub save_to_excel
 	    foreach my $eventid(keys $event)
 	    {
 		my $date = $event->{$eventid}->{'clock'};
-		
+
 		my $host = $event->{$eventid}->{'host'};
 
 		my $description = $event->{$eventid}->{'description'};
@@ -390,7 +395,9 @@ sub save_to_excel
 
 		#Font for status
 		my $format_status = $workbook->add_format(border => 1);
-		$format_status->set_color('black');
+
+		#$format_status->set_color('black');
+		$format_status->set_color($COLOR_EVENT_VALUE{$status});
 		$format_status->set_size(14);
 		$format_status->set_font('Cambria');
 		$format_status->set_align('vcenter');
@@ -401,16 +408,16 @@ sub save_to_excel
 
 		#Font for priority
 		my $format_priority = $workbook->add_format(border => 1);
+
 		$format_priority->set_color('black');
 		$format_priority->set_size(14);
 		$format_priority->set_font('Cambria');
 		$format_priority->set_text_wrap();
 		$format_priority->set_align('vcenter');
-		$format_priority->set_bg_color('#' . $COLOR_TRIGGER_PRIORITY{$priority_number});
+		$format_priority->set_bg_color($COLOR_TRIGGER_PRIORITY{$priority_number});
 
 		my $acknowledged = $event->{$eventid}->{'acknowledged'};
 
-		#Writing data
 		$worksheet->write($row+1, 0, $date, $format_data);
 
 		$worksheet->write($row+1, 1, $host, $format_data);
