@@ -4,10 +4,6 @@
 #https://www.zabbix.com/documentation/3.0/ru/manual/api/reference/event/get
 #http://www.onlineconversion.com/unix_time.htm
 
-#event.value
-#0 - OK
-#1 - PROBLEM
-
 use strict;
 use warnings;
 
@@ -48,24 +44,24 @@ use constant LIMIT		=> 3;
 my $ZABBIX_AUTH_ID;
 my %EVENTS;
 
-my %event_value = (
+my %EVENT_VALUE = (
 		    0 => 'OK',
 		    1 => 'PROBLEM'
 );
 
-my %event_source = (
+my %EVENT_SOURCE = (
 		    0 => 'Trigger',
 		    1 => 'Discovery rule',
 		    2 => 'Auto-registration',
 		    3 => 'Internal event'
 );
 
-my %event_acknowledged = (
+my %EVENT_ACKNOWLEDGED = (
 		    0 => 'NO',
 		    1 => 'YES'
 );
 
-my %trigger_priority = (
+my %TRIGGER_PRIORITY = (
 		    0 => 'Not classified',
 		    1 => 'Information',
 		    2 => 'Warning',
@@ -210,9 +206,9 @@ sub zabbix_get_events
 	my $eventid = $event->{'eventid'};
 	my $objectid = $event->{'objectid'};
 	my $clock = $event->{'clock'}; #Time when the event was created
-	my $value =  $event_value{$event->{'value'}};
-	my $source = $event_source{$event->{'source'}};
-	my $acknowledged = $event_acknowledged{$event->{'acknowledged'}}; #If set to true return only acknowledged events
+	my $value =  $EVENT_VALUE{$event->{'value'}};
+	my $source = $EVENT_SOURCE{$event->{'source'}};
+	my $acknowledged = $EVENT_ACKNOWLEDGED{$event->{'acknowledged'}}; #If set to true return only acknowledged events
 
 	#print "Clock => " . unix_time_to_date($clock) . "\n";
 	#print "ObjectID => $objectid\n";
@@ -264,7 +260,7 @@ sub zabbix_get_trigger
 	#3 - average;
 	#4 - high;
 	#5 - disaster
-	my $priority = $trigger_priority{$trigger->{'priority'}};
+	my $priority = $TRIGGER_PRIORITY{$trigger->{'priority'}};
 
 	my $host;
 	foreach my $hosts(@{$trigger->{'hosts'}})
