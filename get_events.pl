@@ -35,7 +35,7 @@ use constant SMTP_SERVER	=> '127.0.0.1';
 use constant PATH_FOR_SAVING	=> '/home/sa/';
 
 #DEBUG
-use constant DEBUG		=> 1;
+use constant DEBUG		=> 1; #0 - False, 1 - True
 use constant LIMIT		=> 3;
 
 #================================================================
@@ -156,8 +156,6 @@ sub send_to_zabbix
 
     $response = $client->call($url, $json);
 
-    #print Dumper $response;
-
     return $response;
 }
 
@@ -196,8 +194,6 @@ sub zabbix_get_events
     $data{'auth'} = $ZABBIX_AUTH_ID;
     $data{'id'} = 1;
 
-    #print Dumper \%data;
-
     my $response = send_to_zabbix(\%data);
 
     my $count = 0;
@@ -210,19 +206,12 @@ sub zabbix_get_events
 	my $source = $EVENT_SOURCE{$event->{'source'}};
 	my $acknowledged = $EVENT_ACKNOWLEDGED{$event->{'acknowledged'}}; #If set to true return only acknowledged events
 
-	#print "Clock => " . unix_time_to_date($clock) . "\n";
-	#print "ObjectID => $objectid\n";
-	#print "Status => $value\n";
-	#print "Source => $source\n";
-	#print "Acknowledged => $acknowledged\n";
-
 	fill_events($count, $eventid, $objectid, $clock, $value, $source, $acknowledged);
 
 	zabbix_get_trigger($count, $objectid, $eventid);
 
 	$count++;
 
-	#print "=" x 80 . "\n";
     }
 
     $EVENTS{'result'}{'total'} = $count;
@@ -268,12 +257,6 @@ sub zabbix_get_trigger
 	    $host = $hosts->{'name'};
 	}
 
-	#print "Host => $host\n";
-	#print "TriggerID => $triggerid\n";
-	#print "Description => $description\n";
-	#print "Comments => $comments\n";
-	#print "Priority => $priority\n";
-
 	fill_triggers($count, $eventid, $host, $description, $priority);
    }
 }
@@ -298,12 +281,10 @@ sub fill_events
     my ($count, $eventid, $objectid, $clock, $value, $source, $acknowledged) = @_;
 
     $EVENTS{'result'}{'events'}[$count]{$eventid}{'objectid'} = $objectid;
-    $EVENTS{'result'}{'events'}[$count]{$eventid}{'clock'} = $clock;
+    $EVENTS{'result'}{'events'}[$count]{$eventid}{'clock'} = unix_time_to_date($clock);
     $EVENTS{'result'}{'events'}[$count]{$eventid}{'value'} = $value;
     $EVENTS{'result'}{'events'}[$count]{$eventid}{'source'} = $source;
     $EVENTS{'result'}{'events'}[$count]{$eventid}{'acknowledged'} = $acknowledged;
-
-    #print Dumper \%EVENTS;
 }
 
 #================================================================
@@ -321,10 +302,10 @@ sub save_to_excel
     my $file = shift;
 
     my $workbook  = Excel::Writer::XLSX->new(PATH_FOR_SAVING . $file . '.xlsx');
-    my $worksheet = $workbook->add_worksheet('Report');
+    my $worksheet = $workbook->add_worksheet('Report about events');
 
     $workbook->set_properties(
-				title    => 'Report',
+				title    => 'Report about events',
 				author   => 'Zabbix',
 				comments => 'Created by Perl and Excel::Writer::XLSX',
     );
