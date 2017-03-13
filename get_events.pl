@@ -36,7 +36,7 @@ use constant PATH_FOR_SAVING	=> '/home/sa/';
 
 #DEBUG
 use constant DEBUG		=> 1; #0 - False, 1 - True
-use constant LIMIT		=> 3;
+use constant LIMIT		=> 15;
 
 #================================================================
 ##Global variables
@@ -68,6 +68,15 @@ my %TRIGGER_PRIORITY = (
 		    3 => 'Average',
 		    4 => 'High',
 		    5 => 'Disaster'
+);
+
+my %COLOR_TRIGGER_PRIORITY = (
+			    0 => '97AAB3',	#Not classified
+			    1 => '7499FF',	#Information
+			    2 => 'FFC859',	#Warning
+			    3 => 'FFA059',	#Average
+			    4 => 'E97659',	#High
+			    5 => 'E45959'	#Disaster
 );
 
 #================================================================
@@ -237,7 +246,7 @@ sub zabbix_get_trigger
 
     foreach my $trigger(@{$response->content->{'result'}})
     {
-        my $triggerid = $trigger->{'triggerid'};
+	my $triggerid = $trigger->{'triggerid'};
 	my $description = $trigger->{'description'};
 	my $comments = $trigger->{'comments'};
 
@@ -249,15 +258,17 @@ sub zabbix_get_trigger
 	#3 - average;
 	#4 - high;
 	#5 - disaster
-	my $priority = $TRIGGER_PRIORITY{$trigger->{'priority'}};
+	my $priority_name = $TRIGGER_PRIORITY{$trigger->{'priority'}};
 
 	my $host;
+	my $priority_number;
 	foreach my $hosts(@{$trigger->{'hosts'}})
 	{
 	    $host = $hosts->{'name'};
+	    $priority_number = $trigger->{'priority'};
 	}
 
-	fill_triggers($count, $eventid, $host, $description, $priority);
+	fill_triggers($count, $eventid, $host, $description, $priority_name, $priority_number);
    }
 }
 
@@ -290,10 +301,12 @@ sub fill_events
 #================================================================
 sub fill_triggers
 {
-    my ($count, $eventid, $host, $description, $priority) = @_;
+    my ($count, $eventid, $host, $description, $priority_name, $priority_number) = @_;
 
     $EVENTS{'result'}{'events'}[$count]{$eventid}{'host'} = $host;
     $EVENTS{'result'}{'events'}[$count]{$eventid}{'description'} = $description;
+    $EVENTS{'result'}{'events'}[$count]{$eventid}{'priority_name'} = $priority_name;
+    $EVENTS{'result'}{'events'}[$count]{$eventid}{'priority_number'} = $priority_number;
 }
 
 #================================================================
@@ -332,9 +345,9 @@ sub save_to_excel
 
     $worksheet->freeze_panes(1, 0);
 
+    #Font for data
     my $format_data = $workbook->add_format(border => 1);
 
-    #Font for data
     $format_data->set_color('black');
     $format_data->set_size(14);
     $format_data->set_font('Cambria');
@@ -343,11 +356,11 @@ sub save_to_excel
     $format_data->set_align('left');
     $format_data->set_align('vcenter');
 
-    $worksheet->set_column('A:A', 25);
+    $worksheet->set_column('A:A', 45);
     $worksheet->set_column('B:B', 35);
-    $worksheet->set_column('C:C', 40);
-    $worksheet->set_column('D:D', 35);
-    $worksheet->set_column('E:E', 35);
+    $worksheet->set_column('C:C', 100);
+    $worksheet->set_column('D:D', 20);
+    $worksheet->set_column('E:E', 30);
     $worksheet->set_column('F:F', 15);
 
     #Enable auto-filter
@@ -359,24 +372,63 @@ sub save_to_excel
 
     foreach my $result($EVENTS{'result'})
     {
-       #foreach my $event(@{$result->{'events'}})
-        foreach my $event($result->{'events'})
-         {
-
+	my $row = 0;
+	foreach my $event(@{$result->{'events'}})
+	{
 	    print Dumper $event if DEBUG;
 
-            foreach my $eventid(keys $event)
-            {
-              print "$eventid\n" if DEBUG;
-              #print $EVENTS{'result'}{'events'}[$eventid]{'clock'};
-            }
-        }
-    } 
+	    foreach my $eventid(keys $event)
+	    {
+		my $date = $event->{$eventid}->{'clock'};
+		
+		my $host = $event->{$eventid}->{'host'};
+
+		my $description = $event->{$eventid}->{'description'};
+
+		#Status
+		my $status = $event->{$eventid}->{'value'};
+
+		#Font for status
+		my $format_status = $workbook->add_format(border => 1);
+		$format_status->set_color('black');
+		$format_status->set_size(14);
+		$format_status->set_font('Cambria');
+		$format_status->set_align('vcenter');
+
+		#Priority
+		my $priority_name = $event->{$eventid}->{'priority_name'};
+		my $priority_number = $event->{$eventid}->{'priority_number'};
+
+		#Font for priority
+		my $format_priority = $workbook->add_format(border => 1);
+		$format_priority->set_color('black');
+		$format_priority->set_size(14);
+		$format_priority->set_font('Cambria');
+		$format_priority->set_text_wrap();
+		$format_priority->set_align('vcenter');
+		$format_priority->set_bg_color('#' . $COLOR_TRIGGER_PRIORITY{$priority_number});
+
+		my $acknowledged = $event->{$eventid}->{'acknowledged'};
+
+		#Writing data
+		$worksheet->write($row+1, 0, $date, $format_data);
+
+		$worksheet->write($row+1, 1, $host, $format_data);
+
+		$worksheet->write($row+1, 2, $description, $format_data);
+
+		$worksheet->write($row+1, 3, $status, $format_status);
+
+		$worksheet->write($row+1, 4, $priority_name, $format_priority);
+
+		$worksheet->write($row+1, 5, $acknowledged, $format_data);
+	    }
+	$row++;
+	}
+    }
 
     #Close
     $workbook->close;
-
-    #print Dumper \%EVENTS;
 }
 
 #================================================================
