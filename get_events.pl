@@ -38,6 +38,10 @@ use constant SMTP_SERVER	=> '127.0.0.1';
 #EXCEL
 use constant PATH_FOR_SAVING	=> '/home/sa/';
 
+#DEBUG
+use constant DEBUG		=> 1;
+use constant LIMIT		=> 3;
+
 #================================================================
 ##Global variables
 #================================================================
@@ -84,6 +88,8 @@ sub main
 	zabbix_logout();
 	save_to_excel('zabbix_report_events');
     }
+
+    print "*** Done ***\n";
 }
 
 #================================================================
@@ -101,13 +107,14 @@ sub zabbix_auth
 
     if (!defined($response))
     {
-	print "Authentication failed, zabbix server: ". ZABBIX_SERVER . "\n";
+	print "Authentication failed, zabbix server: " . ZABBIX_SERVER . "\n" if DEBUG;
+
 	return 0;
     }
 
     $ZABBIX_AUTH_ID = $response->content->{'result'};
 
-    print "Authentication successful. Auth ID: $ZABBIX_AUTH_ID\n";
+    print "Authentication successful. Auth ID: $ZABBIX_AUTH_ID\n" if DEBUG;
 
     undef $response;
 
@@ -129,11 +136,12 @@ sub zabbix_logout
 
     if (!defined($response))
     {
-	print "Logout failed, zabbix server: " . ZABBIX_SERVER . "\n";
+	print "Logout failed, zabbix server: " . ZABBIX_SERVER . "\n" if DEBUG;
+
 	return 0;
     }
 
-    print "Logout successful. Auth ID: $ZABBIX_AUTH_ID\n";
+    print "Logout successful. Auth ID: $ZABBIX_AUTH_ID\n" if DEBUG;
 
     undef $response;
 }
@@ -187,7 +195,7 @@ sub zabbix_get_events
     $data{'params'}{'sortfield'} = ['clock', 'eventid'];
 
     #for debug
-    $data{'params'}{'limit'} = 3;
+    $data{'params'}{'limit'} = LIMIT if DEBUG;
 
     $data{'auth'} = $ZABBIX_AUTH_ID;
     $data{'id'} = 1;
@@ -258,11 +266,11 @@ sub zabbix_get_trigger
 	#5 - disaster
 	my $priority = $trigger_priority{$trigger->{'priority'}};
 
-        my $host;
-        foreach my $hosts(@{$trigger->{'hosts'}})
-        {
+	my $host;
+	foreach my $hosts(@{$trigger->{'hosts'}})
+	{
 	    $host = $hosts->{'name'};
-        }
+	}
 
 	#print "Host => $host\n";
 	#print "TriggerID => $triggerid\n";
@@ -347,16 +355,16 @@ sub save_to_excel
 
     $worksheet->freeze_panes(1, 0);
 
-    my $format = $workbook->add_format(border => 1);
+    my $format_data = $workbook->add_format(border => 1);
 
     #Font for data
-    $format->set_color('black');
-    $format->set_size(14);
-    $format->set_font('Cambria');
-    $format->set_text_wrap();
+    $format_data->set_color('black');
+    $format_data->set_size(14);
+    $format_data->set_font('Cambria');
+    $format_data->set_text_wrap();
 
-    $format->set_align('left');
-    $format->set_align('vcenter');
+    $format_data->set_align('left');
+    $format_data->set_align('vcenter');
 
     $worksheet->set_column('A:A', 25);
     $worksheet->set_column('B:B', 35);
@@ -368,28 +376,23 @@ sub save_to_excel
     #Enable auto-filter
     $worksheet->autofilter('A1:F1');
 
-    #Data
     my $total = $EVENTS{'result'}{'total'};
 
-    #foreach my $row (0..$total)
-    #{
-        #print $EVENTS{'result'}{'events'}[$row]{'clock'};
-	#$worksheet->write($row+1, 0, $EVENTS{'result'}{'events'}[$row]{'clock'}, $format);
-
-	#delete $EVENTS{'result'}{'items'}[$row];
-    #}
+    print "Total events: $total\n" if DEBUG;
 
     foreach my $result($EVENTS{'result'})
     {
-       foreach my $event(@{$result->{'events'}})
-        #foreach my $event($result->{'events'})        
+       #foreach my $event(@{$result->{'events'}})
+        foreach my $event($result->{'events'})
          {
-	    print Dumper $event;
-            #foreach my $ev(@{$event})
-            #{
-              #print $ev->{'clock'}
-              #print Dumper $ev;
-            #}
+
+	    print Dumper $event if DEBUG;
+
+            foreach my $eventid(keys $event)
+            {
+              print "$eventid\n" if DEBUG;
+              #print $EVENTS{'result'}{'events'}[$eventid]{'clock'};
+            }
         }
     } 
 
@@ -397,4 +400,9 @@ sub save_to_excel
     $workbook->close;
 
     #print Dumper \%EVENTS;
+}
+
+#================================================================
+sub send_report
+{
 }
