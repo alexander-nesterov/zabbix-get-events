@@ -7,10 +7,11 @@
 use strict;
 use warnings;
 
-use JSON::XS qw(encode_json decode_json);
 use Excel::Writer::XLSX;
 use MIME::Lite;
 use JSON::RPC::Client;
+use Date::Calc qw(Today_and_Now Add_Delta_Days);
+use Time::Local;
 use Data::Dumper;
 use utf8;
 
@@ -19,6 +20,8 @@ binmode(STDOUT,':utf8');
 #================================================================
 #Constants
 #================================================================
+#
+use constant DELTA		=> -1;
 
 #ZABBIX
 use constant ZABBIX_USER	=> 'Admin';
@@ -35,7 +38,7 @@ use constant SMTP_SERVER	=> '127.0.0.1';
 use constant PATH_FOR_SAVING	=> '/home/sa/';
 
 #DEBUG
-use constant DEBUG		=> 1; #0 - False, 1 - True
+use constant DEBUG		=> 0; #0 - False, 1 - True
 use constant LIMIT		=> 15;
 
 #================================================================
@@ -50,8 +53,8 @@ my %EVENT_VALUE = (
 );
 
 my %COLOR_EVENT_VALUE = (
-		    OK => '#00AA00',
-		    PROBLEM => '#DC0000'
+		    OK 		=> '#00AA00',
+		    PROBLEM	=> '#DC0000'
 );
 
 my %EVENT_SOURCE = (
@@ -62,8 +65,8 @@ my %EVENT_SOURCE = (
 );
 
 my %EVENT_ACKNOWLEDGED = (
-		    0 => 'NO',
-		    1 => 'YES'
+		    0 => 'No',
+		    1 => 'Yes'
 );
 
 my %TRIGGER_PRIORITY = (
@@ -91,6 +94,8 @@ main();
 sub main
 {
     system('clear');
+	
+	print "*** Start ***\n";
 
     if (zabbix_auth() != 0)
     {
@@ -191,7 +196,8 @@ sub zabbix_get_events
     $data{'params'}{'output'} = 'extend';
 
     #Return only events that have been created after or at the given time
-    $data{'params'}{'time_from'} = '1488931200';
+    #$data{'params'}{'time_from'} = '1488931200';
+	$data{'params'}{'time_from'} = get_delta_date();
 
     #Return only events that have been created before or at the given time
     $data{'params'}{'time_till'} = get_current_time();
@@ -289,6 +295,18 @@ sub unix_time_to_date
     my $unix_time = shift;
 
     return localtime($unix_time);
+}
+
+#================================================================
+sub get_delta_date
+{
+    my ($current_year, $current_month, $current_day, $current_hour, $current_min, $current_sec) = Today_and_Now();
+
+    my ($year, $month, $day) = Add_Delta_Days($current_year, $current_month, $current_day, DELTA);
+
+    my $date_unix = timegm($current_sec, $current_min, $current_hour, $day, $month-1, $year-1900);
+
+    return $date_unix;
 }
 
 #================================================================
@@ -396,7 +414,6 @@ sub save_to_excel
 		#Font for status
 		my $format_status = $workbook->add_format(border => 1);
 
-		#$format_status->set_color('black');
 		$format_status->set_color($COLOR_EVENT_VALUE{$status});
 		$format_status->set_size(14);
 		$format_status->set_font('Cambria');
@@ -414,6 +431,7 @@ sub save_to_excel
 		$format_priority->set_font('Cambria');
 		$format_priority->set_text_wrap();
 		$format_priority->set_align('vcenter');
+		#print ">>> " . $COLOR_TRIGGER_PRIORITY{$priority_number} . "\n";
 		$format_priority->set_bg_color($COLOR_TRIGGER_PRIORITY{$priority_number});
 
 		my $acknowledged = $event->{$eventid}->{'acknowledged'};
