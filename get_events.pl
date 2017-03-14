@@ -20,8 +20,8 @@ binmode(STDOUT,':utf8');
 #================================================================
 #Constants
 #================================================================
-#
-use constant DELTA		=> -1;
+#in days
+use constant DELTA		=> -2;
 
 #ZABBIX
 use constant ZABBIX_USER	=> 'Admin';
@@ -46,6 +46,8 @@ use constant LIMIT		=> 15;
 #================================================================
 my $ZABBIX_AUTH_ID;
 my %EVENTS;
+my $FROM_TIME;
+my $TILL_TIME;
 
 my %EVENT_VALUE = (
 		    0 => 'OK',
@@ -94,11 +96,17 @@ main();
 sub main
 {
     system('clear');
-	
-	print "*** Start ***\n";
+
+    print "*** Start ***\n";
 
     if (zabbix_auth() != 0)
     {
+	$TILL_TIME = get_current_time();
+	$FROM_TIME = get_delta_date();
+
+	print "From: $FROM_TIME | " . unix_time_to_date($FROM_TIME) . "\n" if DEBUG;
+	print "Till: $TILL_TIME | " . unix_time_to_date($TILL_TIME) . "\n" if DEBUG;
+
 	zabbix_get_events();
 	zabbix_logout();
 	save_to_excel('zabbix_report_events');
@@ -196,11 +204,10 @@ sub zabbix_get_events
     $data{'params'}{'output'} = 'extend';
 
     #Return only events that have been created after or at the given time
-    #$data{'params'}{'time_from'} = '1488931200';
-	$data{'params'}{'time_from'} = get_delta_date();
+    $data{'params'}{'time_from'} = $FROM_TIME;
 
     #Return only events that have been created before or at the given time
-    $data{'params'}{'time_till'} = get_current_time();
+    $data{'params'}{'time_till'} = $TILL_TIME;
 
     $data{'params'}{'sortorder'} = 'DESC'; #DESC or ASC
 
@@ -343,7 +350,7 @@ sub save_to_excel
     $workbook->set_properties(
 				title    => 'Report about events',
 				author   => 'Zabbix',
-				comments => 'Created by Perl and Excel::Writer::XLSX',
+				comments => "From: " . unix_time_to_date($FROM_TIME) . "\nTill: " .unix_time_to_date($TILL_TIME)
     );
 
     my $format_header = $workbook->add_format(border => 2);
