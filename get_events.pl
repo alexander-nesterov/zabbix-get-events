@@ -21,7 +21,7 @@ binmode(STDOUT,':utf8');
 #Constants
 #================================================================
 #in days
-use constant DELTA		=> -2;
+use constant DELTA		=> -1;
 
 #ZABBIX
 use constant ZABBIX_USER	=> 'Admin';
@@ -264,7 +264,7 @@ sub zabbix_get_trigger
 
     foreach my $trigger(@{$response->content->{'result'}})
     {
-        my $triggerid = $trigger->{'triggerid'};
+	my $triggerid = $trigger->{'triggerid'};
 	my $description = $trigger->{'description'};
 	my $comments = $trigger->{'comments'};
 
@@ -293,7 +293,7 @@ sub zabbix_get_trigger
 #================================================================
 sub get_current_time
 {
-    return time;
+    return time(); #in unix time
 }
 
 #================================================================
@@ -344,7 +344,18 @@ sub save_to_excel
 {
     my $file = shift;
 
+    my ($status_OK,
+	$status_PROBLEM,
+	$not_classified,
+	$information,
+	$warning,
+	$average,
+	$high,
+	$disaster) = 0;
+
     my $workbook  = Excel::Writer::XLSX->new(PATH_FOR_SAVING . $file . '.xlsx');
+
+    my $worksheet_info = $workbook->add_worksheet('Information');
     my $worksheet = $workbook->add_worksheet('Report about events');
 
     $workbook->set_properties(
@@ -418,6 +429,9 @@ sub save_to_excel
 		#Status
 		my $status = $event->{$eventid}->{'value'};
 
+		if ($status eq 'OK') { $status_OK++; }
+		if ($status eq 'PROBLEM') { $status_PROBLEM++; }
+
 		#Font for status
 		my $format_status = $workbook->add_format(border => 1);
 
@@ -430,6 +444,13 @@ sub save_to_excel
 		my $priority_name = $event->{$eventid}->{'priority_name'};
 		my $priority_number = $event->{$eventid}->{'priority_number'};
 
+		if ($priority_number == 0) {$not_classified++;}
+		if ($priority_number == 1) {$information++;}
+		if ($priority_number == 2) {$warning++;}
+		if ($priority_number == 3) {$average++;}
+		if ($priority_number == 4) {$high++}
+		if ($priority_number == 5) {$disaster++}
+
 		#Font for priority
 		my $format_priority = $workbook->add_format(border => 1);
 
@@ -438,7 +459,6 @@ sub save_to_excel
 		$format_priority->set_font('Cambria');
 		$format_priority->set_text_wrap();
 		$format_priority->set_align('vcenter');
-		#print ">>> " . $COLOR_TRIGGER_PRIORITY{$priority_number} . "\n";
 		$format_priority->set_bg_color($COLOR_TRIGGER_PRIORITY{$priority_number});
 
 		my $acknowledged = $event->{$eventid}->{'acknowledged'};
@@ -458,6 +478,91 @@ sub save_to_excel
 	$row++;
 	}
     }
+
+    #Information
+    my $format_info = $workbook->add_format();
+    $format_info->set_bold();
+    $format_info->set_color('black');
+    $format_info->set_size(14);
+    $format_info->set_font('Cambria');
+	$format_info->set_align('left');
+
+    my $format_not_classified = $workbook->add_format();
+    $format_not_classified->set_color('black');
+    $format_not_classified->set_size(14);
+    $format_not_classified->set_font('Cambria');
+    $format_not_classified->set_bg_color($COLOR_TRIGGER_PRIORITY{0});
+
+    my $format_information = $workbook->add_format();
+    $format_information->set_color('black');
+    $format_information->set_size(14);
+    $format_information->set_font('Cambria');
+    $format_information->set_bg_color($COLOR_TRIGGER_PRIORITY{1});
+
+    my $format_warning = $workbook->add_format();
+    $format_warning->set_color('black');
+    $format_warning->set_size(14);
+    $format_warning->set_font('Cambria');
+    $format_warning->set_bg_color($COLOR_TRIGGER_PRIORITY{2});
+
+    my $format_average = $workbook->add_format();
+    $format_average->set_color('black');
+    $format_average->set_size(14);
+    $format_average->set_font('Cambria');
+    $format_average->set_bg_color($COLOR_TRIGGER_PRIORITY{3});
+
+    my $format_high = $workbook->add_format();
+    $format_high->set_color('black');
+    $format_high->set_size(14);
+    $format_high->set_font('Cambria');
+    $format_high->set_bg_color($COLOR_TRIGGER_PRIORITY{4});
+
+    my $format_disaster = $workbook->add_format();
+    $format_disaster->set_color('black');
+    $format_disaster->set_size(14);
+    $format_disaster->set_font('Cambria');
+    $format_disaster->set_bg_color($COLOR_TRIGGER_PRIORITY{5});
+
+    my $format_OK = $workbook->add_format();
+    $format_OK->set_color('black');
+    $format_OK->set_size(14);
+    $format_OK->set_font('Cambria');
+    $format_OK->set_bg_color($COLOR_EVENT_VALUE{'OK'});
+
+    my $format_PROBLEM = $workbook->add_format();
+    $format_PROBLEM->set_color('black');
+    $format_PROBLEM->set_size(14);
+    $format_PROBLEM->set_font('Cambria');
+    $format_PROBLEM->set_bg_color($COLOR_EVENT_VALUE{'PROBLEM'});
+
+    #
+    $worksheet_info->set_column('A:A', 25);
+    $worksheet_info->set_column('B:B', 40);
+
+    $worksheet_info->write("A1", 'From:', $format_info);
+    $worksheet_info->write("A2", 'Till:', $format_info);
+    $worksheet_info->write("A4", 'Not classified:', $format_not_classified);
+    $worksheet_info->write("A5", 'Information:', $format_information);
+    $worksheet_info->write("A6", 'Warning:', $format_warning);
+    $worksheet_info->write("A7", 'Average:', $format_average);
+    $worksheet_info->write("A8", 'High:', $format_high);
+    $worksheet_info->write("A9", 'Disaster:', $format_disaster);
+
+    $worksheet_info->write("A11", 'OK:', $format_OK);
+    $worksheet_info->write("A12", 'PROBLEM:', $format_PROBLEM);
+
+    $worksheet_info->write(0, 1, scalar unix_time_to_date($FROM_TIME), $format_info);
+    $worksheet_info->write(1, 1, scalar unix_time_to_date($TILL_TIME), $format_info);
+
+    $worksheet_info->write(3, 1, $not_classified, $format_info);
+    $worksheet_info->write(4, 1, $information, $format_info);
+    $worksheet_info->write(5, 1, $warning, $format_info);
+    $worksheet_info->write(6, 1, $average, $format_info);
+    $worksheet_info->write(7, 1, $high, $format_info);
+    $worksheet_info->write(8, 1, $disaster, $format_info);
+
+    $worksheet_info->write(10, 1, $status_OK, $format_info);
+    $worksheet_info->write(11, 1, $status_PROBLEM, $format_info);
 
     #Close
     $workbook->close;
