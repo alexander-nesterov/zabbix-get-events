@@ -351,7 +351,7 @@ sub save_to_excel
 	$warning,
 	$average,
 	$high,
-	$disaster) = 0;
+	$disaster) = (0,0,0,0,0,0,0,0);
 
     my $workbook  = Excel::Writer::XLSX->new(PATH_FOR_SAVING . $file . '.xlsx');
 
@@ -448,8 +448,8 @@ sub save_to_excel
 		if ($priority_number == 1) {$information++;}
 		if ($priority_number == 2) {$warning++;}
 		if ($priority_number == 3) {$average++;}
-		if ($priority_number == 4) {$high++}
-		if ($priority_number == 5) {$disaster++}
+		if ($priority_number == 4) {$high++;}
+		if ($priority_number == 5) {$disaster++;}
 
 		#Font for priority
 		my $format_priority = $workbook->add_format(border => 1);
@@ -485,7 +485,7 @@ sub save_to_excel
     $format_info->set_color('black');
     $format_info->set_size(14);
     $format_info->set_font('Cambria');
-	$format_info->set_align('left');
+    $format_info->set_align('left');
 
     my $format_not_classified = $workbook->add_format();
     $format_not_classified->set_color('black');
@@ -560,7 +560,6 @@ sub save_to_excel
     $worksheet_info->write(6, 1, $average, $format_info);
     $worksheet_info->write(7, 1, $high, $format_info);
     $worksheet_info->write(8, 1, $disaster, $format_info);
-
     $worksheet_info->write(10, 1, $status_OK, $format_info);
     $worksheet_info->write(11, 1, $status_PROBLEM, $format_info);
 
