@@ -4,13 +4,18 @@
 #https://www.zabbix.com/documentation/3.0/ru/manual/api/reference/event/get
 #http://www.onlineconversion.com/unix_time.htm
 
+#example:
+#perl get_events.pl --d -2 --h -8
+
 use strict;
 use warnings;
 
 use Excel::Writer::XLSX;
 use MIME::Lite;
 use JSON::RPC::Client;
-use Date::Calc qw(Today_and_Now Add_Delta_Days);
+use POSIX qw(strftime);
+use Date::Calc qw(Add_Delta_DHMS Localtime);
+use Getopt::Long;
 use Time::Local;
 use Data::Dumper;
 use utf8;
@@ -26,7 +31,7 @@ use constant DELTA		=> -1;
 #ZABBIX
 use constant ZABBIX_USER	=> 'Admin';
 use constant ZABBIX_PASSWORD	=> 'zabbix';
-use constant ZABBIX_SERVER	=> 'zabbix';
+use constant ZABBIX_SERVER	=> 'localhost';
 
 #MAIL
 use constant FROM		=> 'report\@your_domain';
@@ -35,7 +40,7 @@ use constant SUBJECT		=> 'zabbix events';
 use constant SMTP_SERVER	=> '127.0.0.1';
 
 #EXCEL
-use constant PATH_FOR_SAVING	=> '/home/sa/';
+use constant PATH_FOR_SAVING	=> '/home/';
 
 #DEBUG
 use constant DEBUG		=> 0; #0 - False, 1 - True
@@ -48,6 +53,8 @@ my $ZABBIX_AUTH_ID;
 my %EVENTS;
 my $FROM_TIME;
 my $TILL_TIME;
+my $DELTA_DAYS = 0;
+my $DELTA_HOURS = 0;
 
 my %EVENT_VALUE = (
 		    0 => 'OK',
@@ -97,15 +104,18 @@ sub main
 {
     system('clear');
 
+    parse_argv();
+
     print "*** Start ***\n";
 
     if (zabbix_auth() != 0)
     {
-	$TILL_TIME = get_current_time();
-	$FROM_TIME = get_delta_date();
+	
+	$FROM_TIME = get_delta_from_current_date();
+	$TILL_TIME = get_current_epoch_time();
 
-	print "From: $FROM_TIME | " . unix_time_to_date($FROM_TIME) . "\n" if DEBUG;
-	print "Till: $TILL_TIME | " . unix_time_to_date($TILL_TIME) . "\n" if DEBUG;
+	print "From: $FROM_TIME | " . epoch_to_normal_date($FROM_TIME) . "\n" if DEBUG;
+	print "Till: $TILL_TIME | " . epoch_to_normal_date($TILL_TIME) . "\n" if DEBUG;
 
 	zabbix_get_events();
 	zabbix_logout();
@@ -113,6 +123,13 @@ sub main
     }
 
     print "*** Done ***\n";
+}
+
+#================================================================
+sub parse_argv
+{
+    GetOptions ('d=s' => \$DELTA_DAYS,
+		'h=s' => \$DELTA_HOURS);
 }
 
 #================================================================
@@ -136,6 +153,13 @@ sub zabbix_auth
     }
 
     $ZABBIX_AUTH_ID = $response->content->{'result'};
+
+    if (!defined($ZABBIX_AUTH_ID)) 
+    {
+	print "Authentication failed, zabbix server: " . ZABBIX_SERVER . "\n" if DEBUG;
+
+	return 0; 
+    }
 
     print "Authentication successful. Auth ID: $ZABBIX_AUTH_ID\n" if DEBUG;
 
@@ -291,27 +315,44 @@ sub zabbix_get_trigger
 }
 
 #================================================================
-sub get_current_time
+sub get_date
 {
-    return time(); #in unix time
+    return strftime '%Y%m%d', localtime;
 }
 
 #================================================================
-sub unix_time_to_date
+sub get_localtime
+{
+    my ($current_year, $current_month, $current_day, $current_hour, $current_min, $current_sec) = Localtime();
+
+    return ($current_year-1900, $current_month-1, $current_day, $current_hour, $current_min, $current_sec);
+}
+
+#================================================================
+sub get_current_epoch_time
+{
+    my ($current_year, $current_month, $current_day, $current_hour, $current_min, $current_sec) = get_localtime();
+
+    return timegm($current_sec, $current_min, $current_hour, $current_day, $current_month, $current_year);
+}
+
+#================================================================
+sub epoch_to_normal_date
 {
     my $unix_time = shift;
 
-    return localtime($unix_time);
+    return gmtime($unix_time);
 }
 
 #================================================================
-sub get_delta_date
+sub get_delta_from_current_date
 {
-    my ($current_year, $current_month, $current_day, $current_hour, $current_min, $current_sec) = Today_and_Now();
+    my ($current_year, $current_month, $current_day, $current_hour, $current_min, $current_sec) = get_localtime();
 
-    my ($year, $month, $day) = Add_Delta_Days($current_year, $current_month, $current_day, DELTA);
+    my ($year, $month, $day, $hour, $min, $sec) = Add_Delta_DHMS($current_year, $current_month, $current_day, $current_hour, $current_min, $current_sec,
+								$DELTA_DAYS, $DELTA_HOURS, 0, 0);
 
-    my $date_unix = timegm($current_sec, $current_min, $current_hour, $day, $month-1, $year-1900);
+    my $date_unix = timegm($current_sec, $current_min, $hour, $day, $month, $year);
 
     return $date_unix;
 }
@@ -322,7 +363,7 @@ sub fill_events
     my ($count, $eventid, $objectid, $clock, $value, $source, $acknowledged) = @_;
 
     $EVENTS{'result'}{'events'}[$count]{$eventid}{'objectid'} = $objectid;
-    $EVENTS{'result'}{'events'}[$count]{$eventid}{'clock'} = unix_time_to_date($clock);
+    $EVENTS{'result'}{'events'}[$count]{$eventid}{'clock'} = epoch_to_normal_date($clock);
     $EVENTS{'result'}{'events'}[$count]{$eventid}{'value'} = $value;
     $EVENTS{'result'}{'events'}[$count]{$eventid}{'source'} = $source;
     $EVENTS{'result'}{'events'}[$count]{$eventid}{'acknowledged'} = $acknowledged;
@@ -353,7 +394,7 @@ sub save_to_excel
 	$high,
 	$disaster) = (0,0,0,0,0,0,0,0);
 
-    my $workbook  = Excel::Writer::XLSX->new(PATH_FOR_SAVING . $file . '.xlsx');
+    my $workbook  = Excel::Writer::XLSX->new(PATH_FOR_SAVING . $file . '_' . get_date() . '.xlsx');
 
     my $worksheet_info = $workbook->add_worksheet('Information');
     my $worksheet = $workbook->add_worksheet('Report about events');
@@ -361,7 +402,7 @@ sub save_to_excel
     $workbook->set_properties(
 				title    => 'Report about events',
 				author   => 'Zabbix',
-				comments => "From: " . unix_time_to_date($FROM_TIME) . "\nTill: " .unix_time_to_date($TILL_TIME)
+				comments => "From: " . epoch_to_normal_date($FROM_TIME) . "\nTill: " . epoch_to_normal_date($TILL_TIME)
     );
 
     my $format_header = $workbook->add_format(border => 2);
@@ -551,8 +592,8 @@ sub save_to_excel
     $worksheet_info->write("A11", 'OK:', $format_OK);
     $worksheet_info->write("A12", 'PROBLEM:', $format_PROBLEM);
 
-    $worksheet_info->write(0, 1, scalar unix_time_to_date($FROM_TIME), $format_info);
-    $worksheet_info->write(1, 1, scalar unix_time_to_date($TILL_TIME), $format_info);
+    $worksheet_info->write(0, 1, scalar epoch_to_normal_date($FROM_TIME), $format_info);
+    $worksheet_info->write(1, 1, scalar epoch_to_normal_date($TILL_TIME), $format_info);
 
     $worksheet_info->write(3, 1, $not_classified, $format_info);
     $worksheet_info->write(4, 1, $information, $format_info);
@@ -565,9 +606,4 @@ sub save_to_excel
 
     #Close
     $workbook->close;
-}
-
-#================================================================
-sub send_report
-{
 }
