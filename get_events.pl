@@ -15,8 +15,8 @@ use MIME::Lite;
 use JSON::RPC::Client;
 use POSIX qw(strftime);
 use Date::Calc qw(Add_Delta_DHMS Localtime);
-use Getopt::Long;
 use Time::Local;
+use Getopt::Long;
 use Data::Dumper;
 use utf8;
 
@@ -25,9 +25,6 @@ binmode(STDOUT,':utf8');
 #================================================================
 #Constants
 #================================================================
-#in days
-use constant DELTA		=> -1;
-
 #ZABBIX
 use constant ZABBIX_USER	=> 'Admin';
 use constant ZABBIX_PASSWORD	=> 'zabbix';
