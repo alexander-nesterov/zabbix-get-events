@@ -1,4 +1,4 @@
-# zabbix_get_events
+## Zabbix Events
 Receiving events, saving in Excel and sending by mail
 
 Example:
