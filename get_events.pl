@@ -15,6 +15,7 @@ perl get_events.pl --server 'http://localhost/api_jsonrpc.php' \
 --debug 1
 =cut
 
+use v5.22;
 use strict;
 use warnings;
 use LWP::UserAgent;
@@ -453,6 +454,19 @@ sub set_header_data
     return $format_header_data ;
 }
 
+sub set_font_data_for_level
+{
+    my ($workbook, $color_trigger_proitity) = @_;
+
+    my $format_data = $workbook->add_format();
+    $format_data->set_color('black');
+    $format_data->set_size(14);
+    $format_data->set_font('Cambria');
+    $format_data->set_bg_color($color_trigger_proitity);
+
+    return $format_data;
+}
+
 sub save_to_excel
 {
     my ($workbook, $worksheet_info, $format_header_info, $worksheet_data, $format_header_data) = @_;
@@ -495,12 +509,10 @@ sub save_to_excel
 	my $row = 0;
 	foreach my $event(@{$result->{'events'}})
 	{
-	    foreach my $eventid(keys $event)
+	    foreach my $eventid(keys %$event)
 	    {
 		my $date = $event->{$eventid}->{'clock'};
-
 		my $host = $event->{$eventid}->{'host'};
-
 		my $description = $event->{$eventid}->{'description'};
 
 		#Status
@@ -552,69 +564,30 @@ sub save_to_excel
     }
 
     #Information
-    my $format_header_info = $workbook->add_format();
+    $format_header_info = $workbook->add_format();
     $format_header_info->set_bold();
     $format_header_info->set_color('black');
     $format_header_info->set_size(14);
     $format_header_info->set_font('Cambria');
     $format_header_info->set_align('left');
 
-    my $format_not_classified = $workbook->add_format();
-    $format_not_classified->set_color('black');
-    $format_not_classified->set_size(14);
-    $format_not_classified->set_font('Cambria');
-    $format_not_classified->set_bg_color($COLOR_TRIGGER_PRIORITY{0});
 
-    my $format_header_information = $workbook->add_format();
-    $format_header_information->set_color('black');
-    $format_header_information->set_size(14);
-    $format_header_information->set_font('Cambria');
-    $format_header_information->set_bg_color($COLOR_TRIGGER_PRIORITY{1});
+    my $format_not_classified = set_font_data_for_level($workbook, $COLOR_TRIGGER_PRIORITY{0});
+    my $format_information = set_font_data_for_level($workbook, $COLOR_TRIGGER_PRIORITY{1});
+    my $format_warning = set_font_data_for_level($workbook, $COLOR_TRIGGER_PRIORITY{2});
+    my $format_average = set_font_data_for_level($workbook, $COLOR_TRIGGER_PRIORITY{3});
+    my $format_high = set_font_data_for_level($workbook, $COLOR_TRIGGER_PRIORITY{4});
+    my $format_disaster = set_font_data_for_level($workbook, $COLOR_TRIGGER_PRIORITY{5});
+    my $format_OK = set_font_data_for_level($workbook, $COLOR_EVENT_VALUE{'OK'});
+    my $format_PROBLEM = set_font_data_for_level($workbook, $COLOR_EVENT_VALUE{'PROBLEM'});
 
-    my $format_warning = $workbook->add_format();
-    $format_warning->set_color('black');
-    $format_warning->set_size(14);
-    $format_warning->set_font('Cambria');
-    $format_warning->set_bg_color($COLOR_TRIGGER_PRIORITY{2});
-
-    my $format_average = $workbook->add_format();
-    $format_average->set_color('black');
-    $format_average->set_size(14);
-    $format_average->set_font('Cambria');
-    $format_average->set_bg_color($COLOR_TRIGGER_PRIORITY{3});
-
-    my $format_high = $workbook->add_format();
-    $format_high->set_color('black');
-    $format_high->set_size(14);
-    $format_high->set_font('Cambria');
-    $format_high->set_bg_color($COLOR_TRIGGER_PRIORITY{4});
-
-    my $format_disaster = $workbook->add_format();
-    $format_disaster->set_color('black');
-    $format_disaster->set_size(14);
-    $format_disaster->set_font('Cambria');
-    $format_disaster->set_bg_color($COLOR_TRIGGER_PRIORITY{5});
-
-    my $format_OK = $workbook->add_format();
-    $format_OK->set_color('black');
-    $format_OK->set_size(14);
-    $format_OK->set_font('Cambria');
-    $format_OK->set_bg_color($COLOR_EVENT_VALUE{'OK'});
-
-    my $format_PROBLEM = $workbook->add_format();
-    $format_PROBLEM->set_color('black');
-    $format_PROBLEM->set_size(14);
-    $format_PROBLEM->set_font('Cambria');
-    $format_PROBLEM->set_bg_color($COLOR_EVENT_VALUE{'PROBLEM'});
-
-    #
     $worksheet_info->set_column('A:A', 25);
     $worksheet_info->set_column('B:B', 40);
 
     $worksheet_info->write("A1", 'From:', $format_header_info);
     $worksheet_info->write("A2", 'Till:', $format_header_info);
     $worksheet_info->write("A4", 'Not classified:', $format_not_classified);
-    $worksheet_info->write("A5", 'Information:', $format_header_information);
+    $worksheet_info->write("A5", 'Information:', $format_information);
     $worksheet_info->write("A6", 'Warning:', $format_warning);
     $worksheet_info->write("A7", 'Average:', $format_average);
     $worksheet_info->write("A8", 'High:', $format_high);
