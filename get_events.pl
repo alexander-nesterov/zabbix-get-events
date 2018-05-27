@@ -40,10 +40,10 @@ my $DELTA_DAYS = 0;
 my $DELTA_HOURS = 0;
 
 #MAIL
-use constant FROM         => 'report\@your_domain';
-use constant RECIPIENT	  => 'info\@your_domain';
-use constant SUBJECT	  => 'zabbix events';
-use constant SMTP_SERVER  => '127.0.0.1';
+use constant FROM	 => 'report\@your_domain';
+use constant RECIPIENT	 => 'info\@your_domain';
+use constant SUBJECT	 => 'zabbix events';
+use constant SMTP_SERVER => '127.0.0.1';
 
 my %EVENT_VALUE;
 $EVENT_VALUE{0} = 'OK';
@@ -95,7 +95,7 @@ sub parse_argv
                'user=s'    =>  \$zbx_user,         #User
                'pwd=s'     =>  \$zbx_pwd,          #Password
                'file=s'    =>  \$report_file,      #Name of file
-               'day=i'     =>   \$day,      	   #
+               'day=i'     =>  \$day,      	   #
                'hour=i'    =>  \$hour,             #
                'debug=i'   =>  \$debug             #
 
@@ -207,7 +207,7 @@ sub colored
 
     my %colors = ('red'     => 31,
                   'green'   => 32,
-                  'white'   => 37
+                  'white'  => 37
     );
     my $c = $colors{$color};
     return "\033[" . "$colors{$color}m" . $text . "\e[0m";
@@ -390,9 +390,72 @@ sub fill_triggers
     $EVENTS{'result'}{'events'}[$count]{$eventid}{'priority_number'} = $priority_number;
 }
 
+sub create_workbook
+{
+    my $file_report = shift;
+    
+    my $workbook  = Excel::Writer::XLSX->new($file_report);
+
+    $workbook->set_properties(
+       title    => 'Report about events',
+       author   => 'Zabbix',
+       comments => ''
+    );
+    return $workbook
+}
+
+sub create_worksheets
+{
+    my ($workbook, $worksheet_name_info, $worksheet_name_data) = @_;
+    
+    my $worksheet_info = $workbook->add_worksheet($worksheet_name_info);
+    my $worksheet_data = $workbook->add_worksheet($worksheet_name_data);
+
+    return ($worksheet_info, $worksheet_data);
+}
+
+sub close_workbook
+{
+    my $workbook = shift;
+    
+    $workbook->close;
+}
+
+sub set_header_info
+{
+    my $workbook = shift;
+
+    my $format_info = $workbook->add_format(border => 2);
+
+    $format_info->set_bold();
+    $format_info->set_color('red');
+    $format_info->set_size(14);
+    $format_info->set_font('Cambria');
+    $format_info->set_align('center');
+    $format_info->set_bg_color('#FFFFCC');
+
+    return $format_info;
+}
+
+sub set_header_data
+{
+    my $workbook = shift;
+
+    my $format_data = $workbook->add_format(border => 1);
+
+    $format_data->set_color('black');
+    $format_data->set_size(14);
+    $format_data->set_font('Cambria');
+    $format_data->set_text_wrap();
+    $format_data->set_align('left');
+    $format_data->set_align('vcenter');
+
+    return $format_data;
+}
+
 sub save_to_excel
 {
-    my $report_file = shift;
+    my ($workbook, $worksheet_info, $format_info, $worksheet_data, $format_data) = @_;
 
     my ($status_OK,
 	$status_PROBLEM,
@@ -403,58 +466,25 @@ sub save_to_excel
 	$high,
 	$disaster) = (0,0,0,0,0,0,0,0);
 
-    my $workbook = Excel::Writer::XLSX->new($report_file);
-
-    my $worksheet_info = $workbook->add_worksheet('Information');
-    my $worksheet = $workbook->add_worksheet('Report about events');
-
-    $workbook->set_properties(title    => 'Report about events',
-			      author   => 'Zabbix',
-			      comments => ''
-    );
-
-    my $format_header = $workbook->add_format(border => 2);
-
-    #Font for header
-    $format_header->set_bold();
-    $format_header->set_color('red');
-    $format_header->set_size(14);
-    $format_header->set_font('Cambria');
-
-    $format_header->set_align('center');
-
-    $format_header->set_bg_color('#FFFFCC');
-
     #Header
-    $worksheet->write("A1", 'Time', $format_header);
-    $worksheet->write("B1", 'Host', $format_header);
-    $worksheet->write("C1", 'Description', $format_header);
-    $worksheet->write("D1", 'Status', $format_header);
-    $worksheet->write("E1", 'Severity', $format_header);
-    $worksheet->write("F1", 'Ask', $format_header);
+    $worksheet_data->write("A1", 'Time', $format_info);
+    $worksheet_data->write("B1", 'Host', $format_info);
+    $worksheet_data->write("C1", 'Description', $format_info);
+    $worksheet_data->write("D1", 'Status', $format_info);
+    $worksheet_data->write("E1", 'Severity', $format_info);
+    $worksheet_data->write("F1", 'Ask', $format_info);
 
-    $worksheet->freeze_panes(1, 0);
+    $worksheet_data->freeze_panes(1, 0);
 
-    #Font for data
-    my $format_data = $workbook->add_format(border => 1);
-
-    $format_data->set_color('black');
-    $format_data->set_size(14);
-    $format_data->set_font('Cambria');
-    $format_data->set_text_wrap();
-
-    $format_data->set_align('left');
-    $format_data->set_align('vcenter');
-
-    $worksheet->set_column('A:A', 45);
-    $worksheet->set_column('B:B', 35);
-    $worksheet->set_column('C:C', 100);
-    $worksheet->set_column('D:D', 20);
-    $worksheet->set_column('E:E', 30);
-    $worksheet->set_column('F:F', 15);
+    $worksheet_data->set_column('A:A', 45);
+    $worksheet_data->set_column('B:B', 35);
+    $worksheet_data->set_column('C:C', 100);
+    $worksheet_data->set_column('D:D', 20);
+    $worksheet_data->set_column('E:E', 30);
+    $worksheet_data->set_column('F:F', 15);
 
     #Enable auto-filter
-    $worksheet->autofilter('A1:F1');
+    $worksheet_data->autofilter('A1:F1');
 
     my $total = $EVENTS{'result'}{'total'};
 
@@ -510,17 +540,12 @@ sub save_to_excel
 
 		my $acknowledged = $event->{$eventid}->{'acknowledged'};
 
-		$worksheet->write($row+1, 0, $date, $format_data);
-
-		$worksheet->write($row+1, 1, $host, $format_data);
-
-		$worksheet->write($row+1, 2, $description, $format_data);
-
-		$worksheet->write($row+1, 3, $status, $format_status);
-
-		$worksheet->write($row+1, 4, $priority_name, $format_priority);
-
-		$worksheet->write($row+1, 5, $acknowledged, $format_data);
+		$worksheet_data->write($row+1, 0, $date, $format_data);
+		$worksheet_data->write($row+1, 1, $host, $format_data);
+		$worksheet_data->write($row+1, 2, $description, $format_data);
+		$worksheet_data->write($row+1, 3, $status, $format_status);
+		$worksheet_data->write($row+1, 4, $priority_name, $format_priority);
+		$worksheet_data->write($row+1, 5, $acknowledged, $format_data);
 	    }
 	$row++;
 	}
@@ -609,10 +634,6 @@ sub save_to_excel
     $worksheet_info->write(8, 1, $disaster, $format_info);
     $worksheet_info->write(10, 1, $status_OK, $format_info);
     $worksheet_info->write(11, 1, $status_PROBLEM, $format_info);
-
-    #Close
-    $workbook->close;
-    do_debug("File $report_file saved", 'INFO');
 }
 
 sub main
@@ -625,8 +646,8 @@ sub main
     $DEBUG = $debug;
 
     do_debug("Zabbix server: $zbx_server\n" .
-    	     "Zabbix user: $zbx_user\n" .
-    	     "Zabbix pwd: $zbx_pwd\n" .
+    		 "Zabbix user: $zbx_user\n" .
+    		 "Zabbix pwd: $zbx_pwd\n" .
     	     "Report file: $report_file\n" .
     	     "Day: $day\n" .
     	     "Hour: $hour",
@@ -634,7 +655,7 @@ sub main
     );
 
     $FROM_TIME = get_delta_from_current_date();
-    $TILL_TIME = get_current_epoch_time();
+	$TILL_TIME = get_current_epoch_time();
 
     #Auth
     zabbix_auth($zbx_user, $zbx_pwd);
@@ -645,6 +666,13 @@ sub main
     #Logout
     zabbix_logout();
 
+    my $workbook = create_workbook($report_file);
+    my ($worksheet_info, $worksheet_data) = create_worksheets($workbook, 'Information', 'Report about events');
+    my $format_info = set_header_info($workbook);
+    my $format_data = set_header_data($workbook);
+
     #Save
-    save_to_excel($report_file);
+    save_to_excel($workbook, $worksheet_info, $format_info, $worksheet_data, $format_data);
+
+    close_workbook($workbook);
 }
