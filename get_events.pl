@@ -339,17 +339,17 @@ sub get_localtime
     return ($current_year-1900, $current_month-1, $current_day, $current_hour, $current_min, $current_sec);
 }
 
-sub get_current_epoch_time
+sub get_current_unix_time
 {
     my ($current_year, $current_month, $current_day, $current_hour, $current_min, $current_sec) = get_localtime();
 
     my $time = timegm($current_sec, $current_min, $current_hour, $current_day, $current_month, $current_year);
-    do_debug("TILL_TIME: $time = " . epoch_to_normal_date($time), 'INFO');
+    do_debug("TILL_TIME: $time = " . unix_to_human_date($time), 'INFO');
 
     return $time;
 }
 
-sub epoch_to_normal_date
+sub unix_to_human_date
 {
     my $unix_time = shift;
 
@@ -365,7 +365,7 @@ sub get_delta_from_current_date
 
     my $date_unix = timegm($current_sec, $current_min, $hour, $day, $month, $year);
 
-    do_debug("FROM_TIME: $date_unix = " . epoch_to_normal_date($date_unix), 'INFO');
+    do_debug("FROM_TIME: $date_unix = " . unix_to_human_date($date_unix), 'INFO');
 
     return $date_unix;
 }
@@ -375,7 +375,7 @@ sub fill_events
     my ($count, $eventid, $objectid, $clock, $value, $source, $acknowledged) = @_;
 
     $EVENTS{'result'}{'events'}[$count]{$eventid}{'objectid'} = $objectid;
-    $EVENTS{'result'}{'events'}[$count]{$eventid}{'clock'} = epoch_to_normal_date($clock);
+    $EVENTS{'result'}{'events'}[$count]{$eventid}{'clock'} = unix_to_human_date($clock);
     $EVENTS{'result'}{'events'}[$count]{$eventid}{'value'} = $value;
     $EVENTS{'result'}{'events'}[$count]{$eventid}{'source'} = $source;
     $EVENTS{'result'}{'events'}[$count]{$eventid}{'acknowledged'} = $acknowledged;
@@ -596,8 +596,8 @@ sub save_to_excel
     $worksheet_info->write("A11", 'OK:', $format_OK);
     $worksheet_info->write("A12", 'PROBLEM:', $format_PROBLEM);
 
-    $worksheet_info->write(0, 1, scalar epoch_to_normal_date($FROM_TIME), $format_header_info);
-    $worksheet_info->write(1, 1, scalar epoch_to_normal_date($TILL_TIME), $format_header_info);
+    $worksheet_info->write(0, 1, scalar unix_to_human_date($FROM_TIME), $format_header_info);
+    $worksheet_info->write(1, 1, scalar unix_to_human_date($TILL_TIME), $format_header_info);
 
     $worksheet_info->write(3, 1, $not_classified, $format_header_info);
     $worksheet_info->write(4, 1, $information, $format_header_info);
@@ -628,7 +628,7 @@ sub main
     );
 
     $FROM_TIME = get_delta_from_current_date();
-    $TILL_TIME = get_current_epoch_time();
+    $TILL_TIME = get_current_unix_time();
 
     #Auth
     zabbix_auth($zbx_user, $zbx_pwd);
