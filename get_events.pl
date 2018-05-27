@@ -272,13 +272,9 @@ sub zabbix_get_events
 	my $acknowledged = $EVENT_ACKNOWLEDGED{$event->{'acknowledged'}}; #If set to true return only acknowledged events
 
 	fill_events($count, $eventid, $objectid, $clock, $value, $source, $acknowledged);
-
 	zabbix_get_trigger($count, $objectid, $eventid);
-
 	$count++;
-
     }
-
     $EVENTS{'result'}{'total'} = $count;
 }
 
@@ -289,11 +285,9 @@ sub zabbix_get_trigger
 
     $data{'jsonrpc'} = '2.0';
     $data{'method'} = 'trigger.get';
-
     $data{'params'}{'output'} = 'extend';
     $data{'params'}{'triggerids'} = $objectid;
     $data{'params'}{'selectHosts'} = ['hostid', 'name', 'status'];
-
     $data{'auth'} = $ZABBIX_AUTH_ID;
     $data{'id'} = 1;
 
@@ -322,7 +316,6 @@ sub zabbix_get_trigger
 	    $host = $hosts->{'name'};
 	    $priority_number = $trigger->{'priority'};
 	}
-
 	fill_triggers($count, $eventid, $host, $description, $priority_name, $priority_number);
    }
 }
@@ -360,8 +353,9 @@ sub get_delta_from_current_date
 {
     my ($current_year, $current_month, $current_day, $current_hour, $current_min, $current_sec) = get_localtime();
 
-    my ($year, $month, $day, $hour, $min, $sec) = Add_Delta_DHMS($current_year, $current_month, $current_day, $current_hour, $current_min, $current_sec,
-								$DELTA_DAYS, $DELTA_HOURS, 0, 0);
+    my ($year, $month, $day, $hour, $min, $sec) = Add_Delta_DHMS($current_year, $current_month, $current_day,
+                                                                 $current_hour, $current_min, $current_sec,
+								 $DELTA_DAYS, $DELTA_HOURS, 0, 0);
 
     my $date_unix = timegm($current_sec, $current_min, $hour, $day, $month, $year);
 
@@ -619,8 +613,8 @@ sub main
     $DEBUG = $debug;
 
     do_debug("Zabbix server: $zbx_server\n" .
-    		 "Zabbix user: $zbx_user\n" .
-    		 "Zabbix pwd: $zbx_pwd\n" .
+    	     "Zabbix user: $zbx_user\n" .
+    	     "Zabbix pwd: $zbx_pwd\n" .
     	     "Report file: $report_file\n" .
     	     "Day: $day\n" .
     	     "Hour: $hour",
