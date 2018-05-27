@@ -120,7 +120,7 @@ sub zabbix_auth
     my $response = send_to_zabbix(\%data);
  
     $ZABBIX_AUTH_ID = get_result($response);
-    do_debug('Auth ID: ' . $ZABBIX_AUTH_ID, 'SUCCESS');
+    do_debug("Auth ID: $ZABBIX_AUTH_ID", 'SUCCESS');
 }
 
 sub zabbix_logout
@@ -402,7 +402,7 @@ sub create_workbook
        author   => 'Zabbix',
        comments => ''
     );
-    return $workbook
+    return $workbook;
 }
 
 sub create_worksheets
