@@ -4,48 +4,34 @@
 #https://www.zabbix.com/documentation/3.0/ru/manual/api/reference/event/get
 #http://www.onlineconversion.com/unix_time.htm
 
-#example:
-#perl get_events.pl --d -2 --h -8
+=begin comment
+example:
+perl get_events.pl --server 'http://localhost/api_jsonrpc.php' \
+--user 'Admin' \
+--pwd 'password' \
+--file '/home/sa/report.xlsx' \
+--day -100 \
+--hour 1 \
+--debug 1
+=cut
 
 use strict;
 use warnings;
-
+use LWP::UserAgent;
+use Getopt::Long qw(GetOptions);
+use JSON qw(encode_json decode_json);
 use Excel::Writer::XLSX;
 use MIME::Lite;
-use JSON::RPC::Client;
 use POSIX qw(strftime);
 use Date::Calc qw(Add_Delta_DHMS Localtime);
 use Time::Local;
-use Getopt::Long;
 use Data::Dumper;
 use utf8;
 
 binmode(STDOUT,':utf8');
 
-#================================================================
-#Constants
-#================================================================
-#ZABBIX
-use constant ZABBIX_USER	=> 'Admin';
-use constant ZABBIX_PASSWORD	=> 'zabbix';
-use constant ZABBIX_SERVER	=> 'localhost';
-
-#MAIL
-use constant FROM		=> 'report\@your_domain';
-use constant RECIPIENT		=> 'info\@your_domain';
-use constant SUBJECT		=> 'zabbix events';
-use constant SMTP_SERVER	=> '127.0.0.1';
-
-#EXCEL
-use constant PATH_FOR_SAVING	=> '/home/';
-
-#DEBUG
-use constant DEBUG		=> 0; #0 - False, 1 - True
-use constant LIMIT		=> 15;
-
-#================================================================
-##Global variables
-#================================================================
+my $ZABBIX_SERVER;
+my $DEBUG;
 my $ZABBIX_AUTH_ID;
 my %EVENTS;
 my $FROM_TIME;
@@ -53,119 +39,89 @@ my $TILL_TIME;
 my $DELTA_DAYS = 0;
 my $DELTA_HOURS = 0;
 
-my %EVENT_VALUE = (
-		    0 => 'OK',
-		    1 => 'PROBLEM'
-);
+#MAIL
+use constant FROM         => 'report\@your_domain';
+use constant RECIPIENT	  => 'info\@your_domain';
+use constant SUBJECT	  => 'zabbix events';
+use constant SMTP_SERVER  => '127.0.0.1';
 
-my %COLOR_EVENT_VALUE = (
-		    OK 		=> '#00AA00',
-		    PROBLEM	=> '#DC0000'
-);
+my %EVENT_VALUE;
+$EVENT_VALUE{0} = 'OK';
+$EVENT_VALUE{1} = 'PROBLEM';
 
-my %EVENT_SOURCE = (
-		    0 => 'Trigger',
-		    1 => 'Discovery rule',
-		    2 => 'Auto-registration',
-		    3 => 'Internal event'
-);
+my %COLOR_EVENT_VALUE;
+$COLOR_EVENT_VALUE{'OK'}      = '#00AA00';
+$COLOR_EVENT_VALUE{'PROBLEM'} = '#DC0000';
 
-my %EVENT_ACKNOWLEDGED = (
-		    0 => 'No',
-		    1 => 'Yes'
-);
+my %EVENT_SOURCE;
+$EVENT_SOURCE{0} = 'Trigger';
+$EVENT_SOURCE{1} = 'Discovery rule';
+$EVENT_SOURCE{2} = 'Auto-registration';
+$EVENT_SOURCE{3} = 'Internal event';
 
-my %TRIGGER_PRIORITY = (
-		    0 => 'Not classified',
-		    1 => 'Information',
-		    2 => 'Warning',
-		    3 => 'Average',
-		    4 => 'High',
-		    5 => 'Disaster'
-);
+my %EVENT_ACKNOWLEDGED;
+$EVENT_ACKNOWLEDGED{0} = 'No';
+$EVENT_ACKNOWLEDGED{1} = 'Yes';
 
-my %COLOR_TRIGGER_PRIORITY = (
-		    0 => '#97AAB3',	#Not classified
-		    1 => '#7499FF',	#Information
-		    2 => '#FFC859',	#Warning
-		    3 => '#FFA059',	#Average
-		    4 => '#E97659',	#High
-		    5 => '#E45959'	#Disaster
-);
+my %TRIGGER_PRIORITY;
+$TRIGGER_PRIORITY{0} = 'Not classified';
+$TRIGGER_PRIORITY{1} = 'Information';
+$TRIGGER_PRIORITY{2} = 'Warning';
+$TRIGGER_PRIORITY{3} = 'Average';
+$TRIGGER_PRIORITY{4} = 'High';
+$TRIGGER_PRIORITY{5} = 'Disaster';
 
-#================================================================
+my %COLOR_TRIGGER_PRIORITY;
+$COLOR_TRIGGER_PRIORITY{0} = '#97AAB3';
+$COLOR_TRIGGER_PRIORITY{1} = '#7499FF';
+$COLOR_TRIGGER_PRIORITY{2} = '#FFC859';
+$COLOR_TRIGGER_PRIORITY{3} = '#FFA059';
+$COLOR_TRIGGER_PRIORITY{4} = '#E97659';
+$COLOR_TRIGGER_PRIORITY{5} = '#E45959';
+
 main();
 
-#================================================================
-sub main
-{
-    system('clear');
-
-    parse_argv();
-
-    print "*** Start ***\n";
-
-    if (zabbix_auth() != 0)
-    {
-	
-	$FROM_TIME = get_delta_from_current_date();
-	$TILL_TIME = get_current_epoch_time();
-
-	print "From: $FROM_TIME | " . epoch_to_normal_date($FROM_TIME) . "\n" if DEBUG;
-	print "Till: $TILL_TIME | " . epoch_to_normal_date($TILL_TIME) . "\n" if DEBUG;
-
-	zabbix_get_events();
-	zabbix_logout();
-	save_to_excel('zabbix_report_events');
-    }
-
-    print "*** Done ***\n";
-}
-
-#================================================================
 sub parse_argv
 {
-    GetOptions ('d=s' => \$DELTA_DAYS,
-		'h=s' => \$DELTA_HOURS);
+    my $zbx_server;
+    my $zbx_user;
+    my $zbx_pwd;
+    my $report_file;
+    my $day = 0;
+    my $hour = 0;
+    my $debug = 0;
+
+    GetOptions('server=s'  =>  \$zbx_server,       #Zabbix server
+               'user=s'    =>  \$zbx_user,         #User
+               'pwd=s'     =>  \$zbx_pwd,          #Password
+               'file=s'    =>  \$report_file,      #Name of file
+               'day=i'     =>   \$day,      	   #
+               'hour=i'    =>  \$hour,             #
+               'debug=i'   =>  \$debug             #
+
+    ) or do { exit(-1); };
+
+    return ($zbx_server, $zbx_user, $zbx_pwd, $report_file, $day, $hour, $debug);
 }
 
-#================================================================
 sub zabbix_auth
 {
+    my ($user, $pwd) = @_;
+
     my %data;
 
     $data{'jsonrpc'} = '2.0';
     $data{'method'} = 'user.login';
-    $data{'params'}{'user'} = ZABBIX_USER;
-    $data{'params'}{'password'} = ZABBIX_PASSWORD;
+    $data{'params'}{'user'} = $user;
+    $data{'params'}{'password'} = $pwd;
     $data{'id'} = 1;
 
     my $response = send_to_zabbix(\%data);
-
-    if (!defined($response))
-    {
-	print "Authentication failed, zabbix server: " . ZABBIX_SERVER . "\n" if DEBUG;
-
-	return 0;
-    }
-
-    $ZABBIX_AUTH_ID = $response->content->{'result'};
-
-    if (!defined($ZABBIX_AUTH_ID)) 
-    {
-	print "Authentication failed, zabbix server: " . ZABBIX_SERVER . "\n" if DEBUG;
-
-	return 0; 
-    }
-
-    print "Authentication successful. Auth ID: $ZABBIX_AUTH_ID\n" if DEBUG;
-
-    undef $response;
-
-    return 1;
+ 
+    $ZABBIX_AUTH_ID = get_result($response);
+    do_debug('Auth ID: ' . $ZABBIX_AUTH_ID, 'SUCCESS');
 }
 
-#================================================================
 sub zabbix_logout
 {
     my %data;
@@ -178,36 +134,99 @@ sub zabbix_logout
 
     my $response = send_to_zabbix(\%data);
 
-    if (!defined($response))
-    {
-	print "Logout failed, zabbix server: " . ZABBIX_SERVER . "\n" if DEBUG;
-
-	return 0;
-    }
-
-    print "Logout successful. Auth ID: $ZABBIX_AUTH_ID\n" if DEBUG;
-
-    undef $response;
+    my $result = get_result($response);
+    do_debug("Logout: $result", 'SUCCESS');
 }
 
-
-#================================================================
 sub send_to_zabbix
 {
-    my $json = shift;
+    my $data_ref = shift;
 
-    my $response;
+    my $json = encode_json($data_ref);
+    my $ua = create_ua();
 
-    my $url = "http://" . ZABBIX_SERVER . "/api_jsonrpc.php";
+    my $response = $ua->post($ZABBIX_SERVER,
+                            'Content_Type'  => 'application/json',
+                            'Content'       => $json,
+                            'Accept'        => 'application/json'
+    );
 
-    my $client = new JSON::RPC::Client;
-
-    $response = $client->call($url, $json);
-
-    return $response;
+    if ($response->is_success)
+    {
+        my $content_decoded = decode_json($response->content);
+        if (is_error($content_decoded))
+        {
+            do_debug('Error: ' . get_error($content_decoded), 'ERROR');
+            exit(-1);
+        }
+        return $content_decoded;
+    }
+    else
+    {
+        do_debug('Error: ' . $response->status_line, 'ERROR');
+        exit(-1);
+    }
 }
 
-#================================================================
+sub is_error
+{
+    my $content = shift;
+
+    if ($content->{'error'})
+    {
+        return 1;
+    }
+    return 0;
+}
+
+sub get_result
+{
+    my $content = shift;
+
+    return $content->{'result'};
+}
+
+sub get_error
+{
+    my $content = shift;
+
+    return $content->{'error'}{'data'};
+}
+
+sub create_ua
+{
+    my $ua = LWP::UserAgent->new();
+
+    $ua->ssl_opts(verify_hostname => 0, SSL_verify_mode => 0x00);
+    return $ua;
+}
+
+sub colored
+{
+    my ($text, $color) = @_;
+
+    my %colors = ('red'     => 31,
+                  'green'   => 32,
+                  'white'   => 37
+    );
+    my $c = $colors{$color};
+    return "\033[" . "$colors{$color}m" . $text . "\e[0m";
+}
+
+sub do_debug
+{
+    my ($text, $level) = @_;
+
+    if ($DEBUG)
+    {
+        my %lev = ('ERROR'   => 'red',
+                   'SUCCESS' => 'green',
+                   'INFO'    => 'white'
+        );
+        print colored("$text\n", $lev{$level});
+    }
+}
+
 sub zabbix_get_events
 {
     my %data;
@@ -236,16 +255,13 @@ sub zabbix_get_events
     #Possible values are: eventid, objectid and clock
     $data{'params'}{'sortfield'} = ['clock', 'eventid'];
 
-    #for debug
-    $data{'params'}{'limit'} = LIMIT if DEBUG;
-
     $data{'auth'} = $ZABBIX_AUTH_ID;
     $data{'id'} = 1;
 
     my $response = send_to_zabbix(\%data);
 
     my $count = 0;
-    foreach my $event(@{$response->content->{'result'}}) 
+    foreach my $event(@{$response->{'result'}}) 
     {
 	my $eventid = $event->{'eventid'};
 	my $objectid = $event->{'objectid'};
@@ -265,7 +281,6 @@ sub zabbix_get_events
     $EVENTS{'result'}{'total'} = $count;
 }
 
-#================================================================
 sub zabbix_get_trigger
 {
     my ($count, $objectid, $eventid) = @_;
@@ -283,7 +298,7 @@ sub zabbix_get_trigger
 
     my $response = send_to_zabbix(\%data);
 
-    foreach my $trigger(@{$response->content->{'result'}})
+    foreach my $trigger(@{$response->{'result'}})
     {
 	my $triggerid = $trigger->{'triggerid'};
 	my $description = $trigger->{'description'};
@@ -311,13 +326,11 @@ sub zabbix_get_trigger
    }
 }
 
-#================================================================
 sub get_date
 {
     return strftime '%Y%m%d', localtime;
 }
 
-#================================================================
 sub get_localtime
 {
     my ($current_year, $current_month, $current_day, $current_hour, $current_min, $current_sec) = Localtime();
@@ -325,15 +338,16 @@ sub get_localtime
     return ($current_year-1900, $current_month-1, $current_day, $current_hour, $current_min, $current_sec);
 }
 
-#================================================================
 sub get_current_epoch_time
 {
     my ($current_year, $current_month, $current_day, $current_hour, $current_min, $current_sec) = get_localtime();
 
-    return timegm($current_sec, $current_min, $current_hour, $current_day, $current_month, $current_year);
+    my $time = timegm($current_sec, $current_min, $current_hour, $current_day, $current_month, $current_year);
+    do_debug("TILL_TIME: $time = " . epoch_to_normal_date($time), 'INFO');
+
+    return $time;
 }
 
-#================================================================
 sub epoch_to_normal_date
 {
     my $unix_time = shift;
@@ -341,7 +355,6 @@ sub epoch_to_normal_date
     return gmtime($unix_time);
 }
 
-#================================================================
 sub get_delta_from_current_date
 {
     my ($current_year, $current_month, $current_day, $current_hour, $current_min, $current_sec) = get_localtime();
@@ -351,10 +364,11 @@ sub get_delta_from_current_date
 
     my $date_unix = timegm($current_sec, $current_min, $hour, $day, $month, $year);
 
+    do_debug("FROM_TIME: $date_unix = " . epoch_to_normal_date($date_unix), 'INFO');
+
     return $date_unix;
 }
 
-#================================================================
 sub fill_events
 {
     my ($count, $eventid, $objectid, $clock, $value, $source, $acknowledged) = @_;
@@ -366,7 +380,6 @@ sub fill_events
     $EVENTS{'result'}{'events'}[$count]{$eventid}{'acknowledged'} = $acknowledged;
 }
 
-#================================================================
 sub fill_triggers
 {
     my ($count, $eventid, $host, $description, $priority_name, $priority_number) = @_;
@@ -377,10 +390,9 @@ sub fill_triggers
     $EVENTS{'result'}{'events'}[$count]{$eventid}{'priority_number'} = $priority_number;
 }
 
-#================================================================
 sub save_to_excel
 {
-    my $file = shift;
+    my $report_file = shift;
 
     my ($status_OK,
 	$status_PROBLEM,
@@ -391,15 +403,14 @@ sub save_to_excel
 	$high,
 	$disaster) = (0,0,0,0,0,0,0,0);
 
-    my $workbook  = Excel::Writer::XLSX->new(PATH_FOR_SAVING . $file . '_' . get_date() . '.xlsx');
+    my $workbook = Excel::Writer::XLSX->new($report_file);
 
     my $worksheet_info = $workbook->add_worksheet('Information');
     my $worksheet = $workbook->add_worksheet('Report about events');
 
-    $workbook->set_properties(
-				title    => 'Report about events',
-				author   => 'Zabbix',
-				comments => "From: " . epoch_to_normal_date($FROM_TIME) . "\nTill: " . epoch_to_normal_date($TILL_TIME)
+    $workbook->set_properties(title    => 'Report about events',
+			      author   => 'Zabbix',
+			      comments => ''
     );
 
     my $format_header = $workbook->add_format(border => 2);
@@ -447,15 +458,13 @@ sub save_to_excel
 
     my $total = $EVENTS{'result'}{'total'};
 
-    print "Total events: $total\n" if DEBUG;
+    do_debug("Total events: $total", 'INFO');
 
     foreach my $result($EVENTS{'result'})
     {
 	my $row = 0;
 	foreach my $event(@{$result->{'events'}})
 	{
-	    print Dumper $event if DEBUG;
-
 	    foreach my $eventid(keys $event)
 	    {
 		my $date = $event->{$eventid}->{'clock'};
@@ -603,4 +612,39 @@ sub save_to_excel
 
     #Close
     $workbook->close;
+    do_debug("File $report_file saved", 'INFO');
+}
+
+sub main
+{
+    my ($zbx_server, $zbx_user, $zbx_pwd, $report_file, $day, $hour, $debug) = parse_argv();
+
+    $ZABBIX_SERVER = $zbx_server;
+    $DELTA_DAYS = $day;
+    $DELTA_HOURS = $hour;
+    $DEBUG = $debug;
+
+    do_debug("Zabbix server: $zbx_server\n" .
+    	     "Zabbix user: $zbx_user\n" .
+    	     "Zabbix pwd: $zbx_pwd\n" .
+    	     "Report file: $report_file\n" .
+    	     "Day: $day\n" .
+    	     "Hour: $hour",
+    	     'INFO'
+    );
+
+    $FROM_TIME = get_delta_from_current_date();
+    $TILL_TIME = get_current_epoch_time();
+
+    #Auth
+    zabbix_auth($zbx_user, $zbx_pwd);
+
+    #Get events
+    zabbix_get_events();
+
+    #Logout
+    zabbix_logout();
+
+    #Save
+    save_to_excel($report_file);
 }
