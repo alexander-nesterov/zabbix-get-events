@@ -425,37 +425,37 @@ sub set_header_info
 {
     my $workbook = shift;
 
-    my $format_info = $workbook->add_format(border => 2);
+    my $format_header_info = $workbook->add_format(border => 2);
 
-    $format_info->set_bold();
-    $format_info->set_color('red');
-    $format_info->set_size(14);
-    $format_info->set_font('Cambria');
-    $format_info->set_align('center');
-    $format_info->set_bg_color('#FFFFCC');
+    $format_header_info->set_bold();
+    $format_header_info->set_color('red');
+    $format_header_info->set_size(14);
+    $format_header_info->set_font('Cambria');
+    $format_header_info->set_align('center');
+    $format_header_info->set_bg_color('#FFFFCC');
 
-    return $format_info;
+    return $format_header_info;
 }
 
 sub set_header_data
 {
     my $workbook = shift;
 
-    my $format_data = $workbook->add_format(border => 1);
+    my $format_header_data = $workbook->add_format(border => 1);
 
-    $format_data->set_color('black');
-    $format_data->set_size(14);
-    $format_data->set_font('Cambria');
-    $format_data->set_text_wrap();
-    $format_data->set_align('left');
-    $format_data->set_align('vcenter');
+    $format_header_data ->set_color('black');
+    $format_header_data ->set_size(14);
+    $format_header_data ->set_font('Cambria');
+    $format_header_data ->set_text_wrap();
+    $format_header_data ->set_align('left');
+    $format_header_data ->set_align('vcenter');
 
-    return $format_data;
+    return $format_header_data ;
 }
 
 sub save_to_excel
 {
-    my ($workbook, $worksheet_info, $format_info, $worksheet_data, $format_data) = @_;
+    my ($workbook, $worksheet_info, $format_header_info, $worksheet_data, $format_header_data) = @_;
 
     my ($status_OK,
 	$status_PROBLEM,
@@ -467,12 +467,12 @@ sub save_to_excel
 	$disaster) = (0,0,0,0,0,0,0,0);
 
     #Header
-    $worksheet_data->write("A1", 'Time', $format_info);
-    $worksheet_data->write("B1", 'Host', $format_info);
-    $worksheet_data->write("C1", 'Description', $format_info);
-    $worksheet_data->write("D1", 'Status', $format_info);
-    $worksheet_data->write("E1", 'Severity', $format_info);
-    $worksheet_data->write("F1", 'Ask', $format_info);
+    $worksheet_data->write("A1", 'Time', $format_header_info);
+    $worksheet_data->write("B1", 'Host', $format_header_info);
+    $worksheet_data->write("C1", 'Description', $format_header_info);
+    $worksheet_data->write("D1", 'Status', $format_header_info);
+    $worksheet_data->write("E1", 'Severity', $format_header_info);
+    $worksheet_data->write("F1", 'Ask', $format_header_info);
 
     $worksheet_data->freeze_panes(1, 0);
 
@@ -540,24 +540,24 @@ sub save_to_excel
 
 		my $acknowledged = $event->{$eventid}->{'acknowledged'};
 
-		$worksheet_data->write($row+1, 0, $date, $format_data);
-		$worksheet_data->write($row+1, 1, $host, $format_data);
-		$worksheet_data->write($row+1, 2, $description, $format_data);
+		$worksheet_data->write($row+1, 0, $date, $format_header_data);
+		$worksheet_data->write($row+1, 1, $host, $format_header_data);
+		$worksheet_data->write($row+1, 2, $description, $format_header_data);
 		$worksheet_data->write($row+1, 3, $status, $format_status);
 		$worksheet_data->write($row+1, 4, $priority_name, $format_priority);
-		$worksheet_data->write($row+1, 5, $acknowledged, $format_data);
+		$worksheet_data->write($row+1, 5, $acknowledged, $format_header_data);
 	    }
 	$row++;
 	}
     }
 
     #Information
-    my $format_info = $workbook->add_format();
-    $format_info->set_bold();
-    $format_info->set_color('black');
-    $format_info->set_size(14);
-    $format_info->set_font('Cambria');
-    $format_info->set_align('left');
+    my $format_header_info = $workbook->add_format();
+    $format_header_info->set_bold();
+    $format_header_info->set_color('black');
+    $format_header_info->set_size(14);
+    $format_header_info->set_font('Cambria');
+    $format_header_info->set_align('left');
 
     my $format_not_classified = $workbook->add_format();
     $format_not_classified->set_color('black');
@@ -565,11 +565,11 @@ sub save_to_excel
     $format_not_classified->set_font('Cambria');
     $format_not_classified->set_bg_color($COLOR_TRIGGER_PRIORITY{0});
 
-    my $format_information = $workbook->add_format();
-    $format_information->set_color('black');
-    $format_information->set_size(14);
-    $format_information->set_font('Cambria');
-    $format_information->set_bg_color($COLOR_TRIGGER_PRIORITY{1});
+    my $format_header_information = $workbook->add_format();
+    $format_header_information->set_color('black');
+    $format_header_information->set_size(14);
+    $format_header_information->set_font('Cambria');
+    $format_header_information->set_bg_color($COLOR_TRIGGER_PRIORITY{1});
 
     my $format_warning = $workbook->add_format();
     $format_warning->set_color('black');
@@ -611,10 +611,10 @@ sub save_to_excel
     $worksheet_info->set_column('A:A', 25);
     $worksheet_info->set_column('B:B', 40);
 
-    $worksheet_info->write("A1", 'From:', $format_info);
-    $worksheet_info->write("A2", 'Till:', $format_info);
+    $worksheet_info->write("A1", 'From:', $format_header_info);
+    $worksheet_info->write("A2", 'Till:', $format_header_info);
     $worksheet_info->write("A4", 'Not classified:', $format_not_classified);
-    $worksheet_info->write("A5", 'Information:', $format_information);
+    $worksheet_info->write("A5", 'Information:', $format_header_information);
     $worksheet_info->write("A6", 'Warning:', $format_warning);
     $worksheet_info->write("A7", 'Average:', $format_average);
     $worksheet_info->write("A8", 'High:', $format_high);
@@ -623,17 +623,17 @@ sub save_to_excel
     $worksheet_info->write("A11", 'OK:', $format_OK);
     $worksheet_info->write("A12", 'PROBLEM:', $format_PROBLEM);
 
-    $worksheet_info->write(0, 1, scalar epoch_to_normal_date($FROM_TIME), $format_info);
-    $worksheet_info->write(1, 1, scalar epoch_to_normal_date($TILL_TIME), $format_info);
+    $worksheet_info->write(0, 1, scalar epoch_to_normal_date($FROM_TIME), $format_header_info);
+    $worksheet_info->write(1, 1, scalar epoch_to_normal_date($TILL_TIME), $format_header_info);
 
-    $worksheet_info->write(3, 1, $not_classified, $format_info);
-    $worksheet_info->write(4, 1, $information, $format_info);
-    $worksheet_info->write(5, 1, $warning, $format_info);
-    $worksheet_info->write(6, 1, $average, $format_info);
-    $worksheet_info->write(7, 1, $high, $format_info);
-    $worksheet_info->write(8, 1, $disaster, $format_info);
-    $worksheet_info->write(10, 1, $status_OK, $format_info);
-    $worksheet_info->write(11, 1, $status_PROBLEM, $format_info);
+    $worksheet_info->write(3, 1, $not_classified, $format_header_info);
+    $worksheet_info->write(4, 1, $information, $format_header_info);
+    $worksheet_info->write(5, 1, $warning, $format_header_info);
+    $worksheet_info->write(6, 1, $average, $format_header_info);
+    $worksheet_info->write(7, 1, $high, $format_header_info);
+    $worksheet_info->write(8, 1, $disaster, $format_header_info);
+    $worksheet_info->write(10, 1, $status_OK, $format_header_info);
+    $worksheet_info->write(11, 1, $status_PROBLEM, $format_header_info);
 }
 
 sub main
@@ -655,7 +655,7 @@ sub main
     );
 
     $FROM_TIME = get_delta_from_current_date();
-	$TILL_TIME = get_current_epoch_time();
+    $TILL_TIME = get_current_epoch_time();
 
     #Auth
     zabbix_auth($zbx_user, $zbx_pwd);
@@ -668,11 +668,11 @@ sub main
 
     my $workbook = create_workbook($report_file);
     my ($worksheet_info, $worksheet_data) = create_worksheets($workbook, 'Information', 'Report about events');
-    my $format_info = set_header_info($workbook);
-    my $format_data = set_header_data($workbook);
+    my $format_header_info = set_header_info($workbook);
+    my $format_header_data = set_header_data($workbook);
 
     #Save
-    save_to_excel($workbook, $worksheet_info, $format_info, $worksheet_data, $format_data);
+    save_to_excel($workbook, $worksheet_info, $format_header_info, $worksheet_data, $format_header_data);
 
     close_workbook($workbook);
 }
